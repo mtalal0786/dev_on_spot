@@ -1,4 +1,5 @@
 // declarations.d.ts
+declare module "@/*";
 declare module '@google/genai' {
   export class GoogleGenAI {
     constructor(config: { apiKey: string });

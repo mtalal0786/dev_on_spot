@@ -1,6 +1,10 @@
 // controllers/requirementsController.js
 import { GoogleGenAI } from "@google/genai";
-import { getSuggestedModulePrompt, getInsertModulePrompt, getRequirementPrompt } from "../../lib/RequirementPrompts";
+import { getSuggestedModulePrompt, getInsertModulePrompt, getRequirementPrompt } from "../lib/Prompts.js";  // Import prompts for Gemini
+
+import dotenv from 'dotenv';
+dotenv.config();
+
 
 // Initialize Google Gemini API client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

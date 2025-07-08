@@ -46,7 +46,7 @@ export default function RequirementsGathering() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ requirements: promptText }),
+        body: JSON.stringify({ requirements: promptText }), // Send the prompt text to the backend
       });
 
       if (!response.ok) {
@@ -83,7 +83,7 @@ export default function RequirementsGathering() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ requirements: generatedRequirements }),
+        body: JSON.stringify({ requirements: generatedRequirements }), // Send the generated requirements to the backend
       });
 
       if (!response.ok) {
@@ -121,7 +121,6 @@ export default function RequirementsGathering() {
         body: JSON.stringify({
           requirements: editableRequirements, // Current requirements content
           moduleName: moduleDescription, // The selected module to add
-          detailLevel: "super-detailed", // Instruct API to rewrite in super super detail
         }),
       });
 

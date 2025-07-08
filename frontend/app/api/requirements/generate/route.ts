@@ -1,50 +1,37 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
-import { getRequirementPrompt } from '../../../../lib/RequirementPrompts';  // Importing from lib/prompts.ts
 
-// POST request handler for generating requirements
 export async function POST(req: Request) {
   try {
-    const { requirements } = await req.json();  // Get user input from the request body
+    // Get the request body
+    const { requirements } = await req.json();
 
-    // Check if the requirements are provided
+    // Check if the required body parameter is present
     if (!requirements) {
-      return NextResponse.json({ error: "No requirements provided" }, { status: 400 });
+      return NextResponse.json({ error: 'No requirements provided' }, { status: 400 });
     }
 
-    // Ensure the API key is defined
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "GEMINI_API_KEY is not set in environment variables" }, { status: 500 });
+    // Forward the request to the backend API
+    const response = await fetch('http://localhost:5000/api/requirements/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requirements }), // Pass the requirements to the backend API
+    });
+
+    // Check if the response from the backend is OK
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to generate requirements' }, { status: 500 });
     }
 
-    // Initialize the Google Gemini API client
-    const ai = new GoogleGenAI({
-      apiKey,  // Use the API key from environment variables
-    });
+    // Get the JSON data from the backend response
+    const data = await response.json();
 
-    // Get the prompt with enhanced content for SRS generation
-    const systemPrompt = getRequirementPrompt();  // Getting the system prompt for SRS generation
-
-    // Call the API to generate content without thinkingConfig
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",  // Updated model to "gemini-2.0-flash"
-      contents: `${systemPrompt}\n\nUser Requirements:\n${requirements}`,  // Use backticks for proper string interpolation
-    });
-
-    // Check if the response was successful
-    if (!response || !response.text) {
-      console.error('API Response Error:', response);
-      return NextResponse.json({ error: "Failed to generate requirements" }, { status: 500 });
-    }
-
-    // Return the generated content as JSON
-    return NextResponse.json({
-      generatedRequirements: response.text,  // Send the markdown formatted text back to the frontend
-    });
+    // Return the generated requirements as a response
+    return NextResponse.json({ generatedRequirements: data.generatedRequirements });
 
   } catch (error) {
-    console.error("Error generating requirements:", error);
-    return NextResponse.json({ error: "Failed to generate requirements" }, { status: 500 });
+    console.error('Error in proxying the request:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

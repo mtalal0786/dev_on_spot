@@ -1,66 +1,38 @@
-// import express from "express";
-// import mongoose from "mongoose";
-// import dotenv from "dotenv";
-// import cors from "cors"; // Import CORS middleware
-// import projectRoutes from "./routes/projectRoutes.js"; // Import the project routes
-// import authRoutes from "./routes/authRoutes.js"; // Import the auth routes for login, signup, etc.
-
-// // Load environment variables from .env file
-// dotenv.config();
-
-// // Create Express app
-// const app = express();
-
-// // Middleware to parse incoming JSON requests
-// app.use(express.json());
-
-// // Enable CORS for all origins (you can restrict it to specific domains if needed)
-// app.use(cors()); // This allows your server to accept requests from other origins
-
-// // MongoDB connection
-// import connectToDatabase from "./config/db.js"; // Import the MongoDB connection function
-// connectToDatabase(); // Connect to MongoDB
-
-// // Use routes
-// app.use("/api/projects", projectRoutes); // Route for saving projects
-// app.use("/api/auth", authRoutes); // Auth routes for signup, login, etc.
-
-// // Start the server
-// const port = process.env.PORT || 5000;
-// app.listen(port, () => {
-//   console.log(`Server running on port ${port}`);
-// });
-
-// backend/server.js
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import cors from "cors"; // Import CORS middleware
-import projectRoutes from "./routes/projectRoutes.js"; // Import the project routes
-import authRoutes from "./routes/authRoutes.js"; // Import the auth routes for login, signup, etc.
+import cors from "cors";
+import bodyParser from "body-parser";
+import projectRoutes from "./routes/projectRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import requirementRoutes from "./routes/requirementsRoutes.js";
+import fileGenRoutes from "./routes/fileGenRoutes.js";
 
-// Load environment variables from .env file
+// Import and connect to MongoDB
+import connectDB from "./config/db.js";
+
+// Load environment variables
 dotenv.config();
 
-// Create Express app
+// Connect to MongoDB
+connectDB();
+
+// Initialize Express app
 const app = express();
 
-// Middleware to parse incoming JSON requests
-app.use(express.json());
+// Middleware to parse JSON requests
+app.use(bodyParser.json());
 
-// Enable CORS for all origins (you can restrict it to specific domains if needed)
-app.use(cors()); // This allows your server to accept requests from other origins
-
-// MongoDB connection
-import connectToDatabase from "./config/db.js"; // Import the MongoDB connection function
-connectToDatabase(); // Connect to MongoDB
+// Enable CORS
+app.use(cors());
 
 // Use routes
-app.use("/api/projects", projectRoutes); // Route for saving projects
-app.use("/api/auth", authRoutes); // Auth routes for signup, login, forgot password, etc.
+app.use("/api/projects", projectRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/requirements", requirementRoutes);
+app.use("/api/file-gen", fileGenRoutes);
 
 // Start the server
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

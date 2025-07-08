@@ -1,5 +1,6 @@
 // pages/index.js (or app/page.js for App Router)
-"use client"; // Required for Next.js 13+ with React Server Components
+"use client"; 
+
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import {
@@ -198,7 +199,7 @@ export default function Home() {
     }
   };
 
-  const handleCheckboxChange = (item) => {
+  const handleCheckboxChange = (item: string) => {
     setChecklist((prev) => ({
       ...prev,
       [item]: !prev[item],

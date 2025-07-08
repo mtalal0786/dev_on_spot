@@ -1,70 +1,62 @@
-import { GoogleGenAI } from "@google/genai";
-import { NextResponse } from "next/server";
-import { getSuggestedModulePrompt } from "../../../../lib/RequirementPrompts"; // Importing from lib/SuggestedReqPrompts.ts
+import { NextResponse } from 'next/server';
 
-// POST request handler for fetching suggested modules
 export async function POST(req: Request) {
   try {
-    const { requirements } = await req.json(); // Get generated content (requirements) from the request body
+    // Get the request body
+    const { requirements } = await req.json();
 
-    // Check if the requirements are provided
+    // Check if the required body parameter is present
     if (!requirements) {
-      return NextResponse.json(
-        { error: "No requirements provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No requirements provided' }, { status: 400 });
     }
 
-    // Ensure the API key is defined
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY is not set in environment variables" },
-        { status: 500 }
-      );
+    // Forward the request to the backend API
+    const response = await fetch('http://localhost:5000/api/requirements/suggest-modules', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requirements }), // Pass the requirements to the backend API
+    });
+
+    // Log the response status and body for debugging
+    console.log('Backend response status:', response.status);
+    
+    // Check if the response from the backend is OK
+    if (!response.ok) {
+      const responseBody = await response.text(); // Get the full response text
+      console.error('Backend response body:', responseBody); // Log the body of the response
+      return NextResponse.json({ error: 'Failed to fetch suggested modules' }, { status: 500 });
     }
 
-    // Initialize the Google Gemini API client
-    const ai = new GoogleGenAI({
-      apiKey, // Use the API key from environment variables
-    });
+    // Get the JSON data from the backend response
+    const data = await response.json();
 
-    // Get the prompt for generating suggested modules based on the generated requirements
-    const systemPrompt = getSuggestedModulePrompt(); // Getting the system prompt for suggested modules
+    // Log the data returned from the backend for debugging
+    console.log('Data from backend:', data);
 
-    // Call the Gemini API to get suggested modules based on the generated content
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash", // Using the "gemini-2.0-flash" model
-      contents: `${systemPrompt}\n\nGenerated Requirements:\n${requirements}`, // Pass generated requirements as input
-    });
-
-    // Check if the response was successful
-    if (!response || !response.text) {
-      return NextResponse.json(
-        { error: "Failed to fetch suggested modules" },
-        { status: 500 }
-      );
+    // Ensure that the 'suggestedModules' field exists in the response data
+    if (!data.suggestedModules || !Array.isArray(data.suggestedModules)) {
+      console.error('Invalid response from the backend, missing "suggestedModules" field:', data);
+      return NextResponse.json({ error: 'Invalid response from the backend' }, { status: 500 });
     }
 
-    // Clean and process the response to get a proper array of module names
-    const suggestedModules = response.text
-      .split("\n") // Split the response into individual lines
-      .map((line) => line.trim()) // Remove any extra spaces or unwanted characters
-      .filter((module) => module && !module.includes("###") && !module.includes("Analysis:") && module !== ",") // Filter out unwanted lines, commas, and explanations
-      .map((module) => module.replace(/[^a-zA-Z0-9 ]/g, '').trim()); // Remove any special characters
+    // Process the response to clean and filter the modules
+    const suggestedModules = data.suggestedModules
+      .map((module: string) => module.trim())
+      .filter((module: string) => module && module !== '' && !module.includes("json"));
 
-    // Limit to a maximum of 15 modules
-    const finalModules = suggestedModules.slice(1, 16); // Return only the first 15 modules
+    // Check if the suggestedModules array is empty or not
+    if (suggestedModules.length === 0) {
+      console.error('No suggested modules found after processing:', data);
+      return NextResponse.json({ error: 'No suggested modules found' }, { status: 500 });
+    }
 
-    // Return the array of module names
-    return NextResponse.json({
-      suggestedModules: finalModules, // Return 15 modules
-    });
+    // Return the first 15 suggested modules
+    return NextResponse.json({ suggestedModules: suggestedModules.slice(0, 15) });
+
   } catch (error) {
-    console.error("Error fetching suggested modules:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch suggested modules" },
-      { status: 500 }
-    );
+    console.error('Error in proxying the request:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
