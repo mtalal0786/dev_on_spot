@@ -2,26 +2,42 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    // Get the request body
-    const { requirements } = await req.json();
+    // --- START MODIFICATION ---
+    // Get the request body, expecting the new fields
+    const { projectName, projectDescription, applications } = await req.json();
 
-    // Check if the required body parameter is present
-    if (!requirements) {
-      return NextResponse.json({ error: 'No requirements provided' }, { status: 400 });
+    // Check if the required body parameters are present and valid
+    if (!projectName || !projectDescription || !applications || !Array.isArray(applications) || applications.length === 0) {
+      return NextResponse.json(
+        { error: 'Missing or invalid project details (projectName, projectDescription, applications).' },
+        { status: 400 }
+      );
     }
 
-    // Forward the request to the backend API
+    // Forward the request to the backend API, passing the new fields
     const response = await fetch('http://localhost:5000/api/requirements/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ requirements }), // Pass the requirements to the backend API
+      // Pass the new fields directly to the backend API
+      body: JSON.stringify({
+        projectName,
+        projectDescription,
+        applications,
+      }),
     });
+    // --- END MODIFICATION ---
 
     // Check if the response from the backend is OK
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to generate requirements' }, { status: 500 });
+      // Attempt to get a more specific error message from the backend if available
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error from backend' }));
+      console.error('Backend error:', errorData); // Log backend error for debugging
+      return NextResponse.json(
+        { error: errorData.error || 'Failed to generate requirements from backend' },
+        { status: response.status || 500 } // Use backend's status code if available
+      );
     }
 
     // Get the JSON data from the backend response
@@ -32,6 +48,6 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error('Error in proxying the request:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error while processing request' }, { status: 500 });
   }
 }

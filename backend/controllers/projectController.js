@@ -5,7 +5,7 @@ import Project from "../models/projectSchema.js";
 export const saveProject = async (req, res) => {
   try {
     const {
-      projectName,
+      projectName, // This will be the initially provided name (e.g., "Banking App")
       projectDescription,
       createdBy,
       generatedRequirements,
@@ -17,9 +17,40 @@ export const saveProject = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // Create a new project instance
+    let finalProjectName = projectName;
+    let counter = 0;
+
+    // --- START MODIFICATION ---
+
+    // Check for existing projects with the same base name
+    // We use a regex to find names that start with the projectName,
+    // optionally followed by "-X" (where X is a number)
+    const regex = new RegExp(`^${projectName}(?:-(\\d+))?$`);
+    const existingProjects = await Project.find({ projectName: { $regex: regex } })
+      .sort({ projectName: 1 }) // Sort to easily find the highest number
+      .select('projectName'); // Only fetch the project name
+
+    if (existingProjects.length > 0) {
+      // If projects with similar names exist, find the highest counter
+      let maxCounter = 0;
+      existingProjects.forEach(project => {
+        const match = project.projectName.match(new RegExp(`^${projectName}(?:-(\\d+))?$`));
+        if (match && match[1]) { // If it matches the pattern "projectName-X"
+          const currentCounter = parseInt(match[1], 10);
+          if (!isNaN(currentCounter) && currentCounter > maxCounter) {
+            maxCounter = currentCounter;
+          }
+        }
+      });
+      counter = maxCounter + 1;
+      finalProjectName = `${projectName}-${counter}`;
+    }
+
+    // --- END MODIFICATION ---
+
+    // Create a new project instance with the potentially modified name
     const newProject = new Project({
-      projectName,
+      projectName: finalProjectName, // Use the final, unique project name
       projectDescription,
       createdBy,
       generatedRequirements,
@@ -35,6 +66,7 @@ export const saveProject = async (req, res) => {
     });
   } catch (error) {
     console.error("Error saving project:", error);
+    // Be careful not to expose sensitive error details in production
     res.status(500).json({ message: "Failed to save project.", error: error.message });
   }
 };

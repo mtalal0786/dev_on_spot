@@ -69,24 +69,46 @@ export const insertModule = async (req, res) => {
 // POST request handler for generating requirements based on user input
 export const generateRequirements = async (req, res) => {
   try {
-    const { requirements } = req.body;
+    // --- START MODIFICATION ---
+    // Destructure the new fields from the request body
+    const { projectName, projectDescription, applications } = req.body;
 
-    if (!requirements) {
-      return res.status(400).json({ error: "No requirements provided" });
+    // Validate required fields
+    if (!projectName || !projectDescription || !applications || !Array.isArray(applications) || applications.length === 0) {
+      return res.status(400).json({ error: "Missing or invalid project details (projectName, projectDescription, applications)." });
     }
 
+    // Construct a more comprehensive prompt using all provided details
+    const promptText = `Generate detailed System Requirements Specification (SRS) for a project with the following details:
+
+Requirement Generation Prompt:${getRequirementPrompt()}
+Project Name: ${projectName}
+Project Description: ${projectDescription}
+Application Types: ${applications.join(', ')}
+
+Please provide a comprehensive list of functional and non-functional requirements, covering aspects like user management, data storage, UI/UX, security, performance, and scalability relevant to the specified application types. Structure the response clearly, perhaps with headings for different categories of requirements.`;
+
+    // --- END MODIFICATION ---
+
+    // Assuming 'ai' is your initialized Gemini AI client
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash",
-      contents: `${getRequirementPrompt()}\n\nUser Requirements:\n${requirements}`,
+      // Use the newly constructed promptText directly
+      contents: [{ role: "user", parts: [{ text: promptText }] }],
     });
 
-    if (!response || !response.text) {
-      return res.status(500).json({ error: "Failed to generate requirements" });
+    // Check for valid response structure
+    if (!response || !response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0) {
+      console.error("Gemini API response structure unexpected:", response);
+      return res.status(500).json({ error: "Failed to generate requirements: Unexpected AI response format." });
     }
 
-    return res.json({ generatedRequirements: response.text });
+    const generatedText = response.candidates[0].content.parts[0].text;
+
+    return res.json({ generatedRequirements: generatedText });
   } catch (error) {
     console.error("Error generating requirements:", error);
-    return res.status(500).json({ error: "Failed to generate requirements" });
+    // Provide a more generic error message to the client for security
+    return res.status(500).json({ error: "Failed to generate requirements due to an internal server error." });
   }
 };
