@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 const ProjectSchema = new mongoose.Schema({
   projectName: { type: String, required: true },
   projectDescription: { type: String, required: true },
+  applicationTypes:{ type: [String], default: ["Frontend", "Backend"], required: true }, // List of application types (e.g., Frontend, Backend, Mobile)
   createdBy: { type: String, required: true }, // You could store the user ID here if needed
   generatedRequirements: { type: String, required: true }, // Final updated requirements
   modules: { type: [String], default: [] }, // List of suggested modules (optional, commented out for now)

@@ -48,10 +48,21 @@ export function NewProjectDialog({
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Basic validation before moving to the next step
+    if (!projectName.trim() || !projectDescription.trim()) {
+      alert("Project name and description cannot be empty.");
+      return;
+    }
     setStep("applications");
   };
 
   const handleApplicationsSelect = () => {
+    // Basic validation before creating project
+    if (applications.length === 0) {
+      alert("Please select at least one application type.");
+      return;
+    }
+
     const newProject: Project = {
       id: Date.now().toString(),
       name: projectName,
@@ -68,13 +79,21 @@ export function NewProjectDialog({
     onProjectCreate(newProject);
     onOpenChange(false);
 
-    // Pass the project params to the next page via URL query params
-    const params = new URLSearchParams({
-      projectName,
-      projectDescription,
-      applications: applications.join(","),
-    }).toString();
-    router.push(`/new-project/requirements?${params}`);
+    // --- START MODIFICATION ---
+    // Store project details in sessionStorage as JSON
+    sessionStorage.setItem(
+      "newProjectDetails",
+      JSON.stringify({
+        projectName,
+        projectDescription,
+        applications, // Store the array directly
+      })
+    );
+
+    // Navigate to the requirements page without any query params,
+    // as data is now in sessionStorage
+    router.push(`/new-project/requirements`);
+    // --- END MODIFICATION ---
   };
 
   return (
@@ -83,8 +102,8 @@ export function NewProjectDialog({
         <DialogHeader>
           <DialogTitle>Create a new project</DialogTitle>
           <DialogDescription>
-            {step === "name" && "Enter your project name to get started."}
-            {step === "applications" && "Select the applications for your project."}
+            {step === "name" && "Enter your project name and description to get started."}
+            {step === "applications" && "Select the application types for your project."}
           </DialogDescription>
         </DialogHeader>
 
@@ -116,15 +135,16 @@ export function NewProjectDialog({
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit">Continue</Button>
+              <Button type="submit" disabled={!projectName.trim() || !projectDescription.trim()}>Continue</Button>
             </div>
           </form>
         )}
 
         {step === "applications" && (
           <div className="grid gap-4 py-4">
-            <Label>Select Applications</Label>
+            <Label htmlFor="applications-select">Select Applications</Label>
             <MultiSelect
+              id="applications-select"
               options={[
                 { value: "frontend", label: "Frontend" },
                 { value: "backend", label: "Backend" },
@@ -139,6 +159,7 @@ export function NewProjectDialog({
             />
             <Button
               onClick={handleApplicationsSelect}
+              disabled={applications.length === 0} // Disable if no applications selected
             >
               Create Project
             </Button>

@@ -7,14 +7,15 @@ export const saveProject = async (req, res) => {
     const {
       projectName, // This will be the initially provided name (e.g., "Banking App")
       projectDescription,
+      applicationTypes, // This can be used later if needed
       createdBy,
       generatedRequirements,
       modules,
     } = req.body;
 
     // Validate required fields
-    if (!projectName || !projectDescription || !createdBy || !generatedRequirements) {
-      return res.status(400).json({ message: "Missing required fields." });
+    if (!projectName || !projectDescription || !createdBy || !generatedRequirements || !applicationTypes || !Array.isArray(applicationTypes) || applicationTypes.length === 0) {
+      return res.status(400).json({ message: "Missing required fields or invalid application types." });
     }
 
     let finalProjectName = projectName;
@@ -52,6 +53,7 @@ export const saveProject = async (req, res) => {
     const newProject = new Project({
       projectName: finalProjectName, // Use the final, unique project name
       projectDescription,
+      applicationTypes, // Store the application types
       createdBy,
       generatedRequirements,
       modules: modules || [],
