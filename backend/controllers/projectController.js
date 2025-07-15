@@ -1,5 +1,6 @@
 // controllers/projectController.js
 import Project from "../models/projectSchema.js";
+import mongoose from 'mongoose';
 
 // Controller to handle saving a new project
 export const saveProject = async (req, res) => {
@@ -71,4 +72,29 @@ export const saveProject = async (req, res) => {
     // Be careful not to expose sensitive error details in production
     res.status(500).json({ message: "Failed to save project.", error: error.message });
   }
+};
+
+export const getProjectById = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+
+        // Validate if projectId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(projectId)) {
+            return res.status(400).json({ error: "Invalid Project ID format." });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            // Respond with JSON if project is not found
+            return res.status(404).json({ error: "Project not found." });
+        }
+
+        // Respond with the project data as JSON
+        res.status(200).json(project);
+    } catch (error) {
+        console.error("Error fetching project by ID:", error);
+        // Respond with JSON on server error
+        res.status(500).json({ error: "Internal server error while fetching project." });
+    }
 };

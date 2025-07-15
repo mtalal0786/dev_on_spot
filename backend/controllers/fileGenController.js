@@ -1,6 +1,6 @@
-// controllers/fileGenController.js
+// backend/controllers/fileGenController.js
 import { execa } from 'execa';
-import { GoogleGenerativeAI } from "@google/generative-ai"; // Corrected import for the official package name
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -10,7 +10,7 @@ import Project from '../models/projectSchema.js';
 
 dotenv.config();
 
-// Debugging for API Key
+// Debugging for API Key - useful for verifying environment setup
 console.log("=== API Key Debug ===");
 console.log("GEMINI_API_KEY exists:", !!process.env.GEMINI_API_KEY);
 console.log("GEMINI_API_KEY length:", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0);
@@ -18,14 +18,37 @@ console.log("GEMINI_API_KEY first 10 chars:", process.env.GEMINI_API_KEY ? proce
 console.log("All env vars:", Object.keys(process.env).filter(key => key.includes('GEMINI')));
 console.log("===================");
 
-// Initialize Gemini
+// Initialize Gemini with JSON output mode
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Using gemini-2.0-flash as per your preference
+const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash", // Using gemini-1.5-flash as per your preference
+    generationConfig: {
+        // Crucial: Forces the model to output valid JSON.
+        // The API will handle escaping of special characters within JSON strings.
+        responseMimeType: "application/json",
+    },
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TIMEOUT_DURATION = 300000; // 5 minute timeout for execa commands
+
+// --- Constants for File Filtering (Backend) ---
+const BINARY_EXTENSIONS = new Set([
+    'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', // Images
+    'svg', // SVG can be text, but often treated as asset
+    'mp3', 'wav', 'ogg', // Audio
+    'mp4', 'avi', 'mov', // Video
+    'woff', 'woff2', 'ttf', 'otf', 'eot', // Fonts
+    'zip', 'tar', 'gz', 'rar', // Archives
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', // Documents
+    'exe', 'dll', 'bin', // Executables/Binaries
+    'db', 'sqlite', // Databases
+    'env', // Environment files (sensitive, don't send content)
+    'lock', // Package lock files
+    'log',  // Log files
+]);
 
 // --- Helper Functions ---
 
@@ -60,13 +83,13 @@ const getLanguageFromExtension = (ext) => {
         case 'sql': return 'sql';
         case 'sh': return 'shell';
         case 'toml': return 'toml';
-        default: return 'plaintext';
+        default: return 'plaintext'; // Default for unknown or text-like files
     }
 };
 
 /**
  * Recursively reads files and their content from a directory.
- * Excludes common build/dependency folders and hidden files/folders.
+ * Excludes common build/dependency folders, hidden files, and binary files.
  * @param {string} dir - The current directory to scan.
  * @param {string} rootDir - The root directory of the project for relative paths.
  * @returns {Array<Object>} An array of file objects, each with filePath, fileName, fileExtension, fileLanguage, fileContent.
@@ -84,12 +107,14 @@ const getFilesRecursively = (dir, rootDir) => {
     for (const item of items) {
         const itemPath = path.join(dir, item.name);
         const relativePath = path.relative(rootDir, itemPath).replace(/\\/g, '/');
+        const fileExtension = path.extname(item.name).slice(1);
 
         // Exclude common build/dependency folders and hidden files/folders
         if (item.isDirectory() && (item.name === 'node_modules' || item.name === '.next' || item.name === '.git' || item.name === '.vscode' || item.name.startsWith('.'))) {
             continue;
         }
-        if (item.isFile() && item.name.startsWith('.')) { // Exclude hidden files like .env, .gitignore etc.
+        // Exclude hidden files (e.g., .env, .gitignore) directly
+        if (item.isFile() && item.name.startsWith('.')) {
             continue;
         }
         // Exclude common lock/config files that are usually very large or not meant for AI generation
@@ -97,24 +122,22 @@ const getFilesRecursively = (dir, rootDir) => {
             continue;
         }
 
-
         if (item.isDirectory()) {
             files = files.concat(getFilesRecursively(itemPath, rootDir));
         } else if (item.isFile()) {
-            const fileExtension = path.extname(item.name).slice(1);
             const fileLanguage = getLanguageFromExtension(fileExtension);
             let fileContent = '';
-            try {
-                // Read file content only if it's a text-based file
-                if (fileLanguage !== 'plaintext' || ['json', 'md', 'xml', 'yml', 'yaml', 'toml'].includes(fileExtension.toLowerCase())) {
+
+            // Check if it's a binary file based on extension
+            if (BINARY_EXTENSIONS.has(fileExtension.toLowerCase())) {
+                fileContent = `// Binary file: ${item.name}. Content not read for AI processing.`;
+            } else {
+                try {
                     fileContent = fs.readFileSync(itemPath, 'utf8');
-                } else {
-                    // For truly binary or unknown files, don't read content to avoid errors
-                    fileContent = `// Content not read for binary/unknown file type: ${item.name}`;
+                } catch (readErr) {
+                    console.warn(`Could not read file content for ${itemPath}:`, readErr.message);
+                    fileContent = `// Error reading file content: ${readErr.message}`;
                 }
-            } catch (readErr) {
-                console.warn(`Could not read file content for ${itemPath}:`, readErr.message);
-                fileContent = `// Error reading file content: ${readErr.message}`;
             }
 
             files.push({
@@ -256,9 +279,10 @@ const applyChangesToFilesAndFolders = (structure, basePath) => {
  */
 const getFileContentFromGemini = async (project, projectPath, fileToRefine, overallRequirements, currentProjectTree, allCurrentFiles) => {
     // Filter relevant existing files for context to avoid sending too much data to Gemini
-    // Focus on files in the same directory, common components, and global styles/layout
+    // Exclude binary files from context as their content is not useful for code generation.
     const relevantExistingFiles = allCurrentFiles.filter(f =>
         f.filePath !== fileToRefine.filePath && // Exclude the file currently being processed
+        !BINARY_EXTENSIONS.has(f.fileExtension.toLowerCase()) && // Exclude binary files
         (f.filePath.startsWith(path.dirname(fileToRefine.filePath) + '/') || // Files in the same or sub-directories
          f.filePath.includes('src/components') || // Common components
          f.filePath.includes('src/utils') ||     // Utilities
@@ -275,6 +299,8 @@ ${f.fileContent}
     const geminiPrompt = `
 You are an expert Next.js developer assistant, specializing in creating and completing code for files.
 Your task is to provide the *complete and correct code* for the specific file described below, based on the overall project requirements and the context of other relevant files.
+
+You must generate high-quality, production-ready code that adheres to modern best practices, is efficient, maintainable, secure, and well-documented with comments where necessary. For frontend code, ensure it's responsive and considers accessibility. For backend code, focus on robust API design, error handling, and efficient data interactions.
 
 Overall Project Requirements:
 \`\`\`
@@ -409,6 +435,8 @@ export const generateNextAppFiles = async (req, res) => {
 
         // --- 4. Define Prompt for Gemini to Customize/Modify App (initial broad JSON generation) ---
         // This prompt guides Gemini to create the main project structure and placeholder files.
+        // With responseMimeType: "application/json" set on the model, the prompt focuses on structure
+        // and content, not on JSON escaping rules, as the API handles that.
         const initialJsonGenPrompt = `
 You are an expert Next.js developer assistant.
 The user wants to customize a newly created Next.js application based on specific requirements.
@@ -432,6 +460,8 @@ Based on these requirements and the existing project structure, provide a JSON a
 
 **IMPORTANT Next.js App Router Convention:**
 - For routes (e.g., '/dashboard', '/login'), always create a **folder** with that name, and inside it, create a file like \`page.tsx\` (for UI pages) or \`route.ts\` (for API routes). Do NOT create files without extensions directly as route segments.
+- For files that are meant to be components, utilities, or data models, ensure they have appropriate extensions (e.g., .tsx, .ts, .js, .css).
+- For files that are not code (e.g., images, fonts, static assets in 'public' directory), do NOT include them in this JSON response unless you specifically intend to create a placeholder for them.
 
 For each item, include:
 - "type": "folder" or "file"
@@ -440,14 +470,9 @@ For each item, include:
 - "children": (Optional, for folders) An array of child file/folder objects.
 - "extension": (Required for files) The file extension (e.g., "tsx", "css", "js", "json").
 - "language": (Required for files) The programming or markup language (e.g., "TypeScript", "JavaScript", "CSS", "HTML", "JSON", "Markdown").
-- "content": (Required for files) The content of the file. For this initial pass, use placeholder comments like "// TODO: Implement this component" or a basic functional skeleton. Do NOT provide full, detailed code yet.
-
-Do NOT include any existing files or folders that do not need to be modified or are not part of the core structure you are establishing.
-If a file's content is to be changed, you MUST provide the full new content (even if it's placeholder).
-Ensure the JSON is valid and only includes the root array. Use escaped newlines (\\n) and tabs (\\t) within the "content" string.
+- "content": (Required for files) The content of the file. For this initial pass, use placeholder comments like "// TODO: Implement this component" or a basic functional skeleton.
 
 Example of desired output structure:
-\`\`\`json
 [
   {
     "type": "folder",
@@ -465,7 +490,7 @@ Example of desired output structure:
     ]
   },
   {
-    "type": "folder", // Example of a route folder
+    "type": "folder",
     "name": "login",
     "path": "src/app/login",
     "children": [
@@ -488,13 +513,12 @@ Example of desired output structure:
     "content": "export default function Home() {\\n  return (\\n    <main>\\n      <h1>Welcome!</h1>\\n      {/* TODO: Add main page content. */}\\n    </main>\\n  );\\n}"
   }
 ]
-\`\`\`
 `;
 
         console.log("Sending initial broad modification prompt to Gemini for project structure and placeholders:", projectName);
         const result = await model.generateContent(initialJsonGenPrompt);
         const response = await result.response;
-        const responseText = response.text();
+        const responseText = response.text(); // responseText will now *already be valid JSON*
 
         if (!responseText) {
             return res.status(500).json({ error: "Failed to get response from Gemini for initial app modification." });
@@ -502,12 +526,14 @@ Example of desired output structure:
 
         let generatedChangesStructure;
         try {
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-            let jsonString = jsonMatch ? jsonMatch[1] : responseText;
-            generatedChangesStructure = JSON.parse(jsonString);
-
+            // With responseMimeType: "application/json", the entire responseText is the JSON.
+            // No need for regex matching '```json```' blocks.
+            generatedChangesStructure = JSON.parse(responseText);
         } catch (parseErr) {
-            console.error("Error parsing Gemini response for initial structure:", parseErr);
+            // This catch block should be hit much less often now due to JSON mode.
+            // If it is hit, it means Gemini failed to produce valid JSON despite the setting,
+            // or there's an issue with the API response itself.
+            console.error("Error parsing Gemini response for initial structure (despite JSON mode):", parseErr);
             console.error("Response text (potentially problematic):", responseText);
             return res.status(500).json({ error: "Invalid JSON response format from Gemini for initial structure. Failed to parse." });
         }
@@ -534,26 +560,20 @@ Example of desired output structure:
         // Filter files that are likely to need full code content from Gemini.
         // This filter should be carefully chosen to target only relevant code files.
         const filesToRefine = currentFilesOnDisk.filter(file =>
+            // Only refine files that are not binary and are common code/text types
+            !BINARY_EXTENSIONS.has(file.fileExtension.toLowerCase()) &&
             (file.fileLanguage === 'typescript' ||
              file.fileLanguage === 'javascript' ||
              file.fileLanguage === 'css' ||
              file.fileLanguage === 'html' ||
-             file.fileLanguage === 'json') && // Include JSON for config files if needed
-            !file.filePath.includes('node_modules') &&
-            !file.filePath.includes('.next') &&
-            !file.filePath.includes('.git') &&
-            !file.filePath.includes('.env') &&
-            !file.filePath.includes('public/') && // Exclude public assets
-            !file.filePath.includes('package.json') && // Exclude package.json
-            !file.filePath.includes('package-lock.json') && // Exclude package-lock.json
-            !file.filePath.includes('tsconfig.json') && // Exclude tsconfig.json
-            !file.filePath.includes('next.config.ts') && // Exclude next.config.ts
-            !file.filePath.includes('postcss.config.mjs') && // Exclude postcss.config.mjs
-            !file.filePath.includes('eslint.config.mjs') && // Exclude eslint.config.mjs
-            !file.filePath.includes('next-env.d.ts') && // Exclude next-env.d.ts
-            !file.filePath.includes('README.md') // Exclude README.md
-            // You might want to refine this filter to target only files under 'src/' for example:
-            // file.filePath.startsWith('src/')
+             file.fileLanguage === 'json' || // Include JSON for config files if needed
+             file.fileLanguage === 'markdown') && // Include markdown if you want Gemini to write READMEs etc.
+            // Explicitly exclude common config/lock files that are not meant for AI code generation
+            !['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+              'tsconfig.json', 'next.config.ts', 'postcss.config.mjs',
+              'eslint.config.mjs', 'next-env.d.ts', 'README.md'].includes(file.fileName) &&
+            // Further refine to only include files within the 'src' directory (common for Next.js app code)
+            file.filePath.startsWith('src/')
         );
 
         for (const file of filesToRefine) {
@@ -606,6 +626,7 @@ Example of desired output structure:
     } catch (error) {
         console.error("Critical error during Next.js app creation or modification:", error);
         if (error.stderr) console.error("Execa stderr:", error.stderr);
+        // The JSON parsing error should be less frequent now due to responseMimeType
         if (error.message.includes("Invalid JSON response")) {
             return res.status(500).json({ error: "AI response error: " + error.message });
         }
