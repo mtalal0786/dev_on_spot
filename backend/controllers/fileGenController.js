@@ -20,14 +20,23 @@ console.log("===================");
 
 // Initialize Gemini with JSON output mode
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash", // Using gemini-1.5-flash as per your preference
-    generationConfig: {
-        // Crucial: Forces the model to output valid JSON.
-        // The API will handle escaping of special characters within JSON strings.
-        responseMimeType: "application/json",
-    },
+const jsonModel = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+  generationConfig: {
+    responseMimeType: "application/json", // JSON for structure generation
+  },
 });
+
+const codeModel = genAI.getGenerativeModel({
+  model: "gemini-2.0-flash",
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 2048,
+  },
+});
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -267,85 +276,99 @@ const applyChangesToFilesAndFolders = (structure, basePath) => {
 };
 
 /**
- * Internal helper function to get the complete code for a single file from Gemini.
- * It expects Gemini to return raw code, not JSON.
+ * Generates full code for a specific file using Gemini, with proper formatting based on file type.
+ * This function uses raw output (not JSON) and strips markdown wrappers like ```ts if present.
+ *
  * @param {Object} project - The Mongoose Project document.
- * @param {string} projectPath - The absolute path to the project directory on disk.
- * @param {Object} fileToRefine - The file object from project.files array to be refined.
- * @param {string} overallRequirements - The project's overall requirements.
- * @param {string} currentProjectTree - The human-readable tree string of the project.
- * @param {Array<Object>} allCurrentFiles - All current files of the project (for context).
- * @returns {Promise<string|null>} The generated raw code for the file, or null if failed/empty.
+ * @param {string} projectPath - The absolute path to the project on disk.
+ * @param {Object} fileToRefine - File object to be refined (from project.files).
+ * @param {string} overallRequirements - The user-defined project requirements.
+ * @param {string} currentProjectTree - Tree string of current project.
+ * @param {Array<Object>} allCurrentFiles - All files for context.
+ * @returns {Promise<string|null>} The full raw code string for the file or null on failure.
  */
-const getFileContentFromGemini = async (project, projectPath, fileToRefine, overallRequirements, currentProjectTree, allCurrentFiles) => {
-    // Filter relevant existing files for context to avoid sending too much data to Gemini
-    // Exclude binary files from context as their content is not useful for code generation.
-    const relevantExistingFiles = allCurrentFiles.filter(f =>
-        f.filePath !== fileToRefine.filePath && // Exclude the file currently being processed
-        !BINARY_EXTENSIONS.has(f.fileExtension.toLowerCase()) && // Exclude binary files
-        (f.filePath.startsWith(path.dirname(fileToRefine.filePath) + '/') || // Files in the same or sub-directories
-         f.filePath.includes('src/components') || // Common components
-         f.filePath.includes('src/utils') ||     // Utilities
-         f.filePath.includes('src/types') ||     // Type definitions/interfaces
-         f.filePath.includes('src/app/layout.tsx') || // Main layout file
-         f.filePath.includes('src/app/globals.css')) // Global styles
-    ).map(f => `
+const getFileContentFromGemini = async (
+  project,
+  projectPath,
+  fileToRefine,
+  overallRequirements,
+  currentProjectTree,
+  allCurrentFiles
+) => {
+  const relevantExistingFiles = allCurrentFiles
+    .filter(f =>
+      f.filePath !== fileToRefine.filePath &&
+      !BINARY_EXTENSIONS.has(f.fileExtension.toLowerCase()) &&
+      (
+        f.filePath.startsWith(path.dirname(fileToRefine.filePath) + '/') ||
+        f.filePath.includes('src/components') ||
+        f.filePath.includes('src/utils') ||
+        f.filePath.includes('src/types') ||
+        f.filePath.includes('src/app/layout.tsx') ||
+        f.filePath.includes('src/app/globals.css')
+      )
+    )
+    .map(f => `
 File: ${f.filePath}
 \`\`\`${f.fileLanguage}
 ${f.fileContent}
 \`\`\`
 `).join('\n') || 'No additional relevant existing files provided for context.';
 
-    const geminiPrompt = `
-You are an expert Next.js developer assistant, specializing in creating and completing code for files.
-Your task is to provide the *complete and correct code* for the specific file described below, based on the overall project requirements and the context of other relevant files.
+  const geminiPrompt = `
+You are an expert Full-Stack (Next.js) developer assistant with extensive knowledge of modern web development practices and best practices.
 
-You must generate high-quality, production-ready code that adheres to modern best practices, is efficient, maintainable, secure, and well-documented with comments where necessary. For frontend code, ensure it's responsive and considers accessibility. For backend code, focus on robust API design, error handling, and efficient data interactions.
+Your task is to generate a complete and production-ready file based on the following project information and context.
 
-Overall Project Requirements:
+Project Requirements:
 \`\`\`
 ${overallRequirements}
 \`\`\`
 
-Current Project File Structure:
+Project Structure:
 \`\`\`
 ${currentProjectTree}
 \`\`\`
 
-Existing Relevant Files (content provided for context, to help with imports, types, and consistency; ONLY use this for reference, do not modify these):
+Relevant Context Files:
 ${relevantExistingFiles}
 
----
-**Generate the COMPLETE content for this specific file:**
-File Path: ${fileToRefine.filePath}
-File Name: ${fileToRefine.fileName}
-File Type/Language: ${fileToRefine.fileLanguage}
+Now generate ONLY the raw code for the following file.
+Do NOT explain, comment, or wrap in markdown formatting like \`\`\`ts.
 
-Current content of this file (if it exists, it might be empty or a placeholder from previous steps. You must provide the complete new content, not just changes):
-\`\`\`${fileToRefine.fileLanguage}
-${fileToRefine.fileContent || '// File is currently empty or has placeholder content.'}
-\`\`\`
+Target File:
+Path: ${fileToRefine.filePath}
+Language: ${fileToRefine.fileLanguage}
 
-Please provide the *complete, updated content* for the file "${fileToRefine.filePath}".
-Ensure the code is correct, follows Next.js best practices, and integrates seamlessly with the overall project requirements and existing files.
-Return *ONLY the raw code for the file*, nothing else. Do not wrap it in markdown code blocks (e.g., \`\`\`typescript) or any other formatting, just the plain code.
+Replace any placeholder or incomplete content with complete working logic.
+Return only valid ${fileToRefine.fileLanguage} code that is well-formatted.
 `;
 
-    console.log(`Sending prompt to Gemini for content of: ${fileToRefine.filePath}`);
-    try {
-        const result = await model.generateContent(geminiPrompt);
-        const response = await result.response;
-        const responseText = response.text();
+  console.log(`🧠 Generating content for: ${fileToRefine.filePath}`);
 
-        if (!responseText || responseText.trim() === '') {
-            console.warn(`Gemini returned empty content for ${fileToRefine.filePath}.`);
-            return null;
-        }
-        return responseText.trim();
-    } catch (apiError) {
-        console.error(`Error generating content for ${fileToRefine.filePath}:`, apiError.message);
-        return null;
+  try {
+    const result = await codeModel.generateContent(geminiPrompt);
+    const response = await result.response;
+    let responseText = response.text().trim();
+
+    // If wrapped in triple backticks, remove them
+    if (responseText.startsWith("```")) {
+      const lines = responseText.split("\n");
+      if (lines[0].startsWith("```")) lines.shift(); // remove first line
+      if (lines[lines.length - 1].startsWith("```")) lines.pop(); // remove last line
+      responseText = lines.join("\n").trim();
     }
+
+    if (!responseText) {
+      console.warn(`⚠️ Gemini returned empty content for ${fileToRefine.filePath}`);
+      return null;
+    }
+
+    return responseText;
+  } catch (err) {
+    console.error(`❌ Error generating file: ${fileToRefine.filePath}`, err.message);
+    return null;
+  }
 };
 
 
@@ -516,7 +539,7 @@ Example of desired output structure:
 `;
 
         console.log("Sending initial broad modification prompt to Gemini for project structure and placeholders:", projectName);
-        const result = await model.generateContent(initialJsonGenPrompt);
+        const result = await jsonModel.generateContent(initialJsonGenPrompt);
         const response = await result.response;
         const responseText = response.text(); // responseText will now *already be valid JSON*
 
