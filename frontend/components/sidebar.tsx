@@ -35,7 +35,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
   const pathname = usePathname()
 
   const menuItems = [
-    { href: "/", icon: Home, label: "Dashboard" },
+    { href: "/dashboard", icon: Home, label: "Dashboard" },
     { href: "/ai-models", icon: Brain, label: "AI Models" },
     { href: "/workflows", icon: Share2, label: "Workflows" },
     { href: "/whiteboard", icon: Edit, label: "Whiteboard" },

@@ -92,7 +92,7 @@ Please provide a comprehensive list of functional and non-functional requirement
 
     // Assuming 'ai' is your initialized Gemini AI client
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       // Use the newly constructed promptText directly
       contents: [{ role: "user", parts: [{ text: promptText }] }],
     });

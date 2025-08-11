@@ -21,7 +21,7 @@ export function TopNav() {
     <nav className="border-b bg-background shadow-sm">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold text-primary">DevOnSpot</h1>
+          <h1 className="text-2xl font-bold text-primary"><a href="http://localhost:3000/dashboard">DevOnSpot</a></h1>
           <Input
             type="text"
             placeholder="Search..."
