@@ -101,5 +101,6 @@ export const registerDomain = async (req, res) => {
 
   // Redirect the client to the constructed URL.
   // The API will handle the 302 response, so we don't need a fetch call here.
-  res.redirect(registerUrl);
+  res.redirect(registerUrl); 
+  
 };
