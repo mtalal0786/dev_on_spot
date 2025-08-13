@@ -7,8 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Globe, Link, Shield, Check, X } from "lucide-react"
+import { Globe, Link, Shield, Check, X, Loader2 } from "lucide-react"
 import { ThemeProvider } from "../../components/theme-provider"
+
+
+
 
 const sampleDomains = [
   { name: "example.com", registrationDate: "2023-01-15", expirationDate: "2024-01-15", status: "Active" },
@@ -19,11 +22,37 @@ const sampleDomains = [
 export default function DomainsPage() {
   const [domainToCheck, setDomainToCheck] = useState("")
   const [domainAvailability, setDomainAvailability] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const checkDomainAvailability = () => {
-    // This is a mock check. In a real application, you would call an API to check domain availability.
-    const isAvailable = Math.random() < 0.5
-    setDomainAvailability(isAvailable ? "available" : "unavailable")
+  const checkDomainAvailability = async () => {
+    // Clear previous results and errors
+    setDomainAvailability(null)
+    setError(null)
+    setIsLoading(true)
+
+    // A real application would not hardcode localhost, but for this specific request,
+    // we'll assume the backend is running at this address.
+    const apiUrl = `http://localhost:5000/api/domains/check-availability?name=${encodeURIComponent(domainToCheck)}`;
+
+    try {
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch availability.");
+      }
+
+      setDomainAvailability(data.isAvailable ? "available" : "unavailable");
+
+    } catch (err: any) {
+      // Catch network errors or API-specific errors
+      setError(err.message || "An unexpected error occurred. Please try again.");
+      console.error("API call failed:", err);
+      setDomainAvailability("unavailable"); // Default to unavailable on error
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -31,7 +60,7 @@ export default function DomainsPage() {
       <div className="min-h-screen bg-background">
         <TopNav />
         <div className="flex">
-          <Sidebar />
+          <Sidebar isCollapsed={false} />
           <main className="flex-1 p-8">
             <h1 className="text-3xl font-bold text-foreground mb-8">Domains</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -78,14 +107,25 @@ export default function DomainsPage() {
                 <div className="flex space-x-2">
                   <Input
                     type="text"
-                    placeholder="Enter a domain name"
+                    placeholder="Enter domain name (e.g., google)"
                     value={domainToCheck}
                     onChange={(e) => setDomainToCheck(e.target.value)}
                   />
-                  <Button onClick={checkDomainAvailability}>Check</Button>
+                  <Button onClick={checkDomainAvailability} disabled={isLoading || domainToCheck === ""}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      "Check"
+                    )}
+                  </Button>
                 </div>
-                {domainAvailability && (
-                  <p className={`mt-2 ${domainAvailability === "available" ? "text-green-500" : "text-red-500"}`}>
+                {isLoading && (
+                    <p className="mt-2 flex items-center text-gray-500">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking availability...
+                    </p>
+                )}
+                {!isLoading && domainAvailability && (
+                  <p className={`mt-2 flex items-center ${domainAvailability === "available" ? "text-green-500" : "text-red-500"}`}>
                     {domainAvailability === "available" ? (
                       <Check className="inline mr-2" />
                     ) : (
@@ -93,6 +133,9 @@ export default function DomainsPage() {
                     )}
                     Domain is {domainAvailability}
                   </p>
+                )}
+                {error && (
+                    <p className="mt-2 text-red-500">{error}</p>
                 )}
               </CardContent>
             </Card>

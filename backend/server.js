@@ -6,7 +6,8 @@ import projectRoutes from "./routes/projectRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import requirementRoutes from "./routes/requirementsRoutes.js";
 import fileGenRoutes from "./routes/fileGenRoutes.js";
-import aiModelRoutes from "./routes/aiModelRoutes.js"; // Import the AI model routes
+import aiModelRoutes from "./routes/aiModelRoutes.js";
+import domainRoutes from "./routes/domainRoutes.js"; // Import the new domain routes
 
 // Import and connect to MongoDB
 import connectDB from "./config/db.js";
@@ -31,8 +32,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/requirements", requirementRoutes);
 app.use("/api/file-gen", fileGenRoutes);
-// Use AI models routes
-app.use("/api/models", aiModelRoutes); // Add this line
+app.use("/api/models", aiModelRoutes);
+app.use("/api/domains", domainRoutes); // Add this line to use the domain routes
 
 
 // Start the server
