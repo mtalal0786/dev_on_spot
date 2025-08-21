@@ -28,7 +28,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Add the middleware to serve files from the templates and thumbnails folders.
-// This is the missing piece of code from your file.
 app.use("/thumbnails", express.static(path.join(__dirname, '..', 'thumbnails')));
 app.use("/templates", express.static(path.join(__dirname, '..', 'templates')));
 
@@ -42,6 +41,7 @@ import aiModelRoutes from "./routes/aiModelRoutes.js";
 import domainRoutes from "./routes/domainRoutes.js";
 import templateRoutes from "./routes/templateRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js"; // New import
+import playgroundRoutes from "./routes/playgroundRoutes.js"; // Import the playground routes
 
 app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
@@ -50,11 +50,12 @@ app.use("/api/file-gen", fileGenRoutes);
 app.use("/api/models", aiModelRoutes);
 app.use("/api/domains", domainRoutes);
 app.use('/api/templates', templateRoutes);
-app.use('/api/categories', categoryRoutes); // New route
+app.use('/api/categories', categoryRoutes); 
+app.use('/api/playground', playgroundRoutes);
 
 
 // Start the server
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

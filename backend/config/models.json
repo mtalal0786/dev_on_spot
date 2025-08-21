@@ -1,0 +1,39 @@
+{
+  "gemini": {
+    "provider": "google",
+    "apiKey": "YOUR_GEMINI_API_KEY",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+    "models": [
+      {
+        "name": "Gemini Pro",
+        "modelId": "gemini-pro"
+      }
+    ]
+  },
+  "openai": {
+    "provider": "openai",
+    "apiKey": "YOUR_OPENAI_API_KEY",
+    "baseUrl": "https://api.openai.com/v1",
+    "models": [
+      {
+        "name": "GPT-4",
+        "modelId": "gpt-4"
+      },
+      {
+        "name": "GPT-3.5 Turbo",
+        "modelId": "gpt-3.5-turbo"
+      }
+    ]
+  },
+  "anthropic": {
+    "provider": "anthropic",
+    "apiKey": "YOUR_ANTHROPIC_API_KEY",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "models": [
+      {
+        "name": "Claude 3 Sonnet",
+        "modelId": "claude-3-sonnet-20240229"
+      }
+    ]
+  }
+}
