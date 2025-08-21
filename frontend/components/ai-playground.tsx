@@ -35,11 +35,13 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
     const [output, setOutput] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    // New state to store the history of generations
+    const [history, setHistory] = useState<any[]>([]);
 
     // Use useEffect to set the default model whenever selectedModels changes
     useEffect(() => {
         if (selectedModels.length > 0) {
-            setSelectedModel(selectedModels[0].name);
+            setSelectedModel(selectedModels[4].name);
         } else {
             setSelectedModel(""); // Clear selection if no models are available
         }
@@ -54,6 +56,7 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
 
         setLoading(true);
         setError(null);
+        setOutput("");
 
         console.log({
             modelName: selectedModel,
@@ -81,7 +84,14 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
             }
 
             const data = await response.json();
-            setOutput(data.output);
+            const newOutput = data.output;
+            setOutput(newOutput);
+            
+            // Add the new generation to the history, keeping only the last 10
+            setHistory(prevHistory => {
+                const newHistoryEntry = { input, output: newOutput };
+                return [newHistoryEntry, ...prevHistory].slice(0, 10);
+            });
         } catch (err: any) {
             setError(err.message);
             setOutput("");
@@ -234,8 +244,21 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
                             </TabsContent>
                             <TabsContent value="history">
                                 <Card>
-                                    <CardContent className="p-4 min-h-[300px]">
-                                        <p className="text-sm text-muted-foreground">No history yet</p>
+                                    <CardContent className="p-4 h-[400px] bg-muted/50 overflow-y-auto">
+                                        {history.length > 0 ? (
+                                            <div className="space-y-4">
+                                                {history.map((entry, index) => (
+                                                    <div key={index} className="border-b pb-2 last:border-b-0">
+                                                        <p className="text-sm font-semibold text-foreground">Prompt:</p>
+                                                        <p className="text-sm text-muted-foreground mb-2 whitespace-pre-wrap">{entry.input}</p>
+                                                        <p className="text-sm font-semibold text-foreground">Response:</p>
+                                                        <pre className="text-sm whitespace-pre-wrap">{entry.output}</pre>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No history yet</p>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -255,4 +278,4 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
             </CardContent>
         </Card>
     )
-};
+}
