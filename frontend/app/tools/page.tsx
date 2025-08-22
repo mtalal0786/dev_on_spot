@@ -114,6 +114,7 @@ const iconMap: Record<string, LucideIcon> = {
 
 export default function ToolsPage() {
   const [tools, setTools] = useState<GroupedTool[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [currentTool, setCurrentTool] = useState<Tool | null>(null); // Tool being edited
@@ -280,6 +281,15 @@ export default function ToolsPage() {
     setIsModalOpen(true);
   };
   
+  // Filter the tools based on the search term
+  const filteredTools = tools.map(category => ({
+    ...category,
+    items: category.items.filter(tool =>
+      tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tool.description.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  })).filter(category => category.items.length > 0);
+
   // Conditionally render based on loading state
   if (isLoading) {
     return (
@@ -303,7 +313,12 @@ export default function ToolsPage() {
               <div className="flex items-center space-x-4">
                 <div className="relative w-64">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search tools..." className="pl-8" />
+                  <Input 
+                    placeholder="Search tools..." 
+                    className="pl-8" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
                 <Button onClick={openAddModal}>
                   <Plus className="h-4 w-4 mr-2" /> Add Tool
@@ -312,8 +327,8 @@ export default function ToolsPage() {
             </div>
 
             <div className="space-y-8">
-              {tools.length > 0 ? (
-                tools.map((category) => (
+              {filteredTools.length > 0 ? (
+                filteredTools.map((category) => (
                   <div key={category.category}>
                     <h2 className="text-xl font-semibold mb-4">{category.category}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -357,7 +372,7 @@ export default function ToolsPage() {
                   </div>
                 ))
               ) : (
-                <p>No tools found. Please add a new tool to get started.</p>
+                <p className="text-center text-muted-foreground">No tools found matching your search.</p>
               )}
             </div>
           </main>
