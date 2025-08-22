@@ -229,7 +229,7 @@ export default function AIModelsPage() {
   const fetchModels = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/models");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/models`);
       if (!response.ok) {
         throw new Error("Failed to fetch AI models, using dummy data.");
       }
@@ -297,7 +297,7 @@ export default function AIModelsPage() {
     if (window.confirm("Are you sure you want to delete this model?")) {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/models/delete/${id}`,
+          `${process.env.NEXT_PUBLIC_BASE_URL}/models/delete/${id}`,
           {
             method: "DELETE",
           }
@@ -319,7 +319,7 @@ export default function AIModelsPage() {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:5000/api/models/add", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/models/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -349,7 +349,7 @@ export default function AIModelsPage() {
     }
     try {
       const response = await fetch(
-        `http://localhost:5000/api/models/update/${currentModel._id}`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/models/update/${currentModel._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

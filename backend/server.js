@@ -42,6 +42,7 @@ import domainRoutes from "./routes/domainRoutes.js";
 import templateRoutes from "./routes/templateRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js"; // New import
 import playgroundRoutes from "./routes/playgroundRoutes.js"; // Import the playground routes
+import toolsRoutes from "./routes/toolsRoutes.js"; // Import the tools routes
 
 app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
@@ -52,7 +53,7 @@ app.use("/api/domains", domainRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/playground', playgroundRoutes);
-
+app.use('/api/tools', toolsRoutes); // Use the tools routes
 
 // Start the server
 const port = process.env.PORT || 5000;

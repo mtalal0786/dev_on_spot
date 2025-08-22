@@ -65,7 +65,7 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
         });
 
         try {
-            const response = await fetch("http://localhost:5000/api/playground", {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/playground`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
