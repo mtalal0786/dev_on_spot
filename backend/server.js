@@ -38,22 +38,22 @@ import authRoutes from "./routes/authRoutes.js";
 import requirementRoutes from "./routes/requirementsRoutes.js";
 import fileGenRoutes from "./routes/fileGenRoutes.js";
 import aiModelRoutes from "./routes/aiModelRoutes.js";
-import domainRoutes from "./routes/domainRoutes.js";
 import templateRoutes from "./routes/templateRoutes.js";
-import categoryRoutes from "./routes/categoryRoutes.js"; // New import
-import playgroundRoutes from "./routes/playgroundRoutes.js"; // Import the playground routes
-import toolsRoutes from "./routes/toolsRoutes.js"; // Import the tools routes
+import categoryRoutes from "./routes/categoryRoutes.js";
+import playgroundRoutes from "./routes/playgroundRoutes.js"; 
+import toolsRoutes from "./routes/toolsRoutes.js"; 
+import domainRoutes from "./routes/domainRoutes.js";
 
 app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/requirements", requirementRoutes);
 app.use("/api/file-gen", fileGenRoutes);
 app.use("/api/models", aiModelRoutes);
-app.use("/api/domains", domainRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/playground', playgroundRoutes);
-app.use('/api/tools', toolsRoutes); // Use the tools routes
+app.use('/api/tools', toolsRoutes); 
+app.use("/api/domains", domainRoutes);
 
 // Start the server
 const port = process.env.PORT || 5000;

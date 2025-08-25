@@ -104,3 +104,189 @@ export const registerDomain = async (req, res) => {
   res.redirect(registerUrl); 
   
 };
+
+// domainController.js
+
+import Domain from '../models/domain.js'; // Import the updated Mongoose model
+import mongoose from 'mongoose';
+
+/**
+ * @fileoverview Updated Domain CRUD controller.
+ * This file contains the logic for handling all domain-related operations,
+ * including the new fields for purchased plan and expiration date.
+ */
+
+// --- Helper function to check for valid MongoDB ObjectId ---
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+// --- Helper function to calculate expiration date ---
+const calculateExpirationDate = (plan) => {
+  const currentDate = new Date();
+  switch (plan) {
+    case '1 month':
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      break;
+    case '6 months':
+      currentDate.setMonth(currentDate.getMonth() + 6);
+      break;
+    case '1 year':
+      currentDate.setFullYear(currentDate.getFullYear() + 1);
+      break;
+    case '2 years':
+      currentDate.setFullYear(currentDate.getFullYear() + 2);
+      break;
+    case '5 years':
+      currentDate.setFullYear(currentDate.getFullYear() + 5);
+      break;
+    default:
+      // Default to 1 year if the plan is invalid
+      currentDate.setFullYear(currentDate.getFullYear() + 1);
+  }
+  return currentDate;
+};
+
+// --- CREATE a new domain entry ---
+export const createDomain = async (req, res) => {
+  try {
+    // For now, hardcode user email. This will be replaced with
+    // a proper authentication system that links to a user schema.
+    const userEmail = 'mainuser@example.com';
+
+    // Destructure required fields from the request body
+    const {
+      domain_provider_name,
+      domain_name,
+      ssl_purchased,
+      domain_status,
+      purchased_plan,
+    } = req.body;
+
+    // Check if required fields are present
+    if (!domain_provider_name || !domain_name || !domain_status || !purchased_plan) {
+      return res.status(400).json({ message: 'Missing required fields.' });
+    }
+
+    // Calculate the expiration date based on the purchased plan
+    const expiration_date = calculateExpirationDate(purchased_plan);
+
+    // Create a new domain instance with all required fields
+    const newDomain = new Domain({
+      user_email: userEmail,
+      domain_provider_name,
+      domain_name,
+      ssl_purchased,
+      domain_status,
+      purchased_plan,
+      expiration_date, // Add the calculated expiration date
+    });
+
+    // Save the new domain entry to the database
+    const savedDomain = await newDomain.save();
+
+    // Respond with a 201 Created status and the new domain data
+    res.status(201).json(savedDomain);
+  } catch (error) {
+    // Handle specific MongoDB duplicate key error
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'A domain with this name already exists.' });
+    }
+    // Handle other server errors
+    console.error('Error creating domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// --- READ all domain entries ---
+export const getAllDomains = async (req, res) => {
+  try {
+    // Find all documents in the 'domains' collection
+    const domains = await Domain.find();
+    // Respond with the list of domains
+    res.status(200).json(domains);
+  } catch (error) {
+    console.error('Error fetching domains:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// --- READ a single domain entry by ID ---
+export const getDomainById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate the incoming ID format
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid domain ID.' });
+    }
+
+    // Find a domain by its ID
+    const domain = await Domain.findById(id);
+
+    // If no domain is found, return a 404 Not Found error
+    if (!domain) {
+      return res.status(404).json({ message: 'Domain not found.' });
+    }
+
+    // Respond with the found domain data
+    res.status(200).json(domain);
+  } catch (error) {
+    console.error('Error fetching domain by ID:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// --- UPDATE a domain entry by ID ---
+export const updateDomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate the incoming ID format
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid domain ID.' });
+    }
+
+    // Find the domain and update it with the new data from the request body.
+    const updatedDomain = await Domain.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true, runValidators: true } // runValidators ensures schema validation is applied on update
+    );
+
+    // If no domain is found, return a 404 Not Found error
+    if (!updatedDomain) {
+      return res.status(404).json({ message: 'Domain not found.' });
+    }
+
+    // Respond with the updated domain data
+    res.status(200).json(updatedDomain);
+  } catch (error) {
+    console.error('Error updating domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// --- DELETE a domain entry by ID ---
+export const deleteDomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate the incoming ID format
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid domain ID.' });
+    }
+
+    // Find the domain and delete it
+    const deletedDomain = await Domain.findByIdAndDelete(id);
+
+    // If no domain is found, return a 404 Not Found error
+    if (!deletedDomain) {
+      return res.status(404).json({ message: 'Domain not found.' });
+    }
+
+    // Respond with a success message
+    res.status(200).json({ message: 'Domain deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
