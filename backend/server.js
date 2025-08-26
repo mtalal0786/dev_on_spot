@@ -27,9 +27,10 @@ app.use(cors());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Add the middleware to serve files from the templates and thumbnails folders.
+// Add the middleware to serve files from the templates, thumbnails, and images folders.
 app.use("/thumbnails", express.static(path.join(__dirname, '..', 'thumbnails')));
 app.use("/templates", express.static(path.join(__dirname, '..', 'templates')));
+app.use("/images", express.static(path.join(__dirname, '..', 'images')));
 
 
 // Use routes
@@ -40,8 +41,8 @@ import fileGenRoutes from "./routes/fileGenRoutes.js";
 import aiModelRoutes from "./routes/aiModelRoutes.js";
 import templateRoutes from "./routes/templateRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
-import playgroundRoutes from "./routes/playgroundRoutes.js"; 
-import toolsRoutes from "./routes/toolsRoutes.js"; 
+import playgroundRoutes from "./routes/playgroundRoutes.js";
+import toolsRoutes from "./routes/toolsRoutes.js";
 import domainRoutes from "./routes/domainRoutes.js";
 
 app.use("/api/projects", projectRoutes);
@@ -50,13 +51,13 @@ app.use("/api/requirements", requirementRoutes);
 app.use("/api/file-gen", fileGenRoutes);
 app.use("/api/models", aiModelRoutes);
 app.use('/api/templates', templateRoutes);
-app.use('/api/categories', categoryRoutes); 
+app.use('/api/categories', categoryRoutes);
 app.use('/api/playground', playgroundRoutes);
-app.use('/api/tools', toolsRoutes); 
+app.use('/api/tools', toolsRoutes);
 app.use("/api/domains", domainRoutes);
 
 // Start the server
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

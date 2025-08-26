@@ -1,4 +1,3 @@
-// models/Template.js
 import mongoose from 'mongoose';
 
 const templateSchema = new mongoose.Schema({
@@ -16,13 +15,23 @@ const templateSchema = new mongoose.Schema({
     required: [true, 'Template category is required'],
     trim: true,
   },
-  thumbnail_url: {
-    type: String,
-    trim: true,
+  // New field to store all image URLs
+  image_urls: {
+    type: [String], 
+    default: [],
   },
   file_url: {
     type: String,
     trim: true,
+  },
+  creator: {
+    type: String,
+    trim: true,
+    default: 'Team',
+  },
+  usedCount: {
+    type: Number,
+    default: 0,
   },
 }, {
   timestamps: true,
