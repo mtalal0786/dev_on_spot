@@ -4,9 +4,8 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
-
-// Import and connect to MongoDB
 import connectDB from "./config/db.js";
+import blogRoutes from "./routes/blogRoutes.js"; // Import the blog routes
 
 // Load environment variables
 dotenv.config();
@@ -17,23 +16,21 @@ connectDB();
 // Initialize Express app
 const app = express();
 
-// Middleware to parse JSON requests
+// Middleware
 app.use(bodyParser.json());
-
-// Enable CORS
 app.use(cors());
 
 // Correctly get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Add the middleware to serve files from the templates, thumbnails, and images folders.
+// Serve static files from the designated folders
 app.use("/thumbnails", express.static(path.join(__dirname, '..', 'thumbnails')));
 app.use("/templates", express.static(path.join(__dirname, '..', 'templates')));
 app.use("/images", express.static(path.join(__dirname, '..', 'images')));
+app.use("/blog_images", express.static(path.join(__dirname, '..', 'blog_images'))); // This line serves the images
 
-
-// Use routes
+// Use all routes
 import projectRoutes from "./routes/projectRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import requirementRoutes from "./routes/requirementsRoutes.js";
@@ -55,9 +52,10 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/playground', playgroundRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use("/api/domains", domainRoutes);
+app.use("/api/blogs", blogRoutes); // This line uses the blog routes
 
 // Start the server
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on port ${port}`);
 });

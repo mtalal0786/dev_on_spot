@@ -41,7 +41,7 @@ export function AIPlayground({ type, selectedModels }: AIPlaygroundProps) {
     // Use useEffect to set the default model whenever selectedModels changes
     useEffect(() => {
         if (selectedModels.length > 0) {
-            setSelectedModel(selectedModels[4].name);
+            setSelectedModel(selectedModels[0].name);
         } else {
             setSelectedModel(""); // Clear selection if no models are available
         }
