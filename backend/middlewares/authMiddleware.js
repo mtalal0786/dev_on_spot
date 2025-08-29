@@ -1,27 +1,47 @@
-
 // backend/middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
+import User from "../models/userSchema.js";
 
-// Middleware to verify the standard JWT for authentication
-const authMiddleware = (req, res, next) => {
-  const token = req.header("x-auth-token");
+export const protect = async (req, res, next) => {
+  let token;
 
-  if (!token) {
-    return res.status(401).json({ error: "No token, authorization denied" });
-  }
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    try {
+      token = req.headers.authorization.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.userId).select("-password");
 
-  try {
-    // Verify the regular JWT
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.userId;
-    next(); // Proceed to the next middleware/route handler
-  } catch (err) {
-    res.status(401).json({ error: "Token is not valid" });
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authorized, user not found" });
+      }
+
+      next();
+    } catch (error) {
+      // This catch block handles both JWT verification failures and database errors
+      console.error(error);
+      return res.status(401).json({ error: "Not authorized, token failed" });
+    }
+  } else {
+    // If the Authorization header is not present or doesn't start with 'Bearer'
+    return res.status(401).json({ error: "Not authorized, no token" });
   }
 };
 
+// Middleware to authorize specific roles (checks if the user has a required role)
+export const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    // Check if the user's role is included in the authorized roles list
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: `User role '${req.user.role}' is not authorized to access this route.`,
+      });
+    }
+    next();
+  };
+};
+
 // Middleware to verify the password reset token
-const verifyResetToken = (req, res, next) => {
+export const verifyResetToken = (req, res, next) => {
   const { resetToken } = req.body;
 
   if (!resetToken) {
@@ -29,13 +49,12 @@ const verifyResetToken = (req, res, next) => {
   }
 
   try {
-    // Verify the reset token using a different secret or shorter expiry time
+    // Verify the reset token using the same secret
     const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
-    req.user = decoded.userId; // Store the user ID (or other info) for subsequent processing
+    req.user = decoded; // Store the user ID for subsequent processing
     next(); // Proceed to the next middleware/route handler
   } catch (err) {
     res.status(400).json({ error: "Invalid or expired reset token" });
   }
 };
 
-export { authMiddleware, verifyResetToken };

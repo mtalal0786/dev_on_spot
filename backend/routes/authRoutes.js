@@ -1,24 +1,27 @@
-
-
+// backend/routes/authRoutes.js
 import express from "express";
-import { signup, login, forgotPassword, resetPassword } from "../controllers/authController.js";
-import { check } from "express-validator"; // For validation
+import {
+  signup, login, forgotPassword, resetPassword,
+  getAllUsers, getUserById, updateUserRole, deleteUser,
+  adminCreateUser, adminUpdateUser, getUserKpis
+} from "../controllers/authController.js";
+import { protect, authorizeRoles } from "../middlewares/authMiddleware.js";
+import { check } from "express-validator";
 
 const router = express.Router();
 
-// POST route to sign up a new user
+/* ========== Public ========== */
 router.post(
   "/signup",
   [
     check("name", "Name is required").notEmpty(),
     check("email", "Please include a valid email").isEmail(),
-    check("password", "Password is required and should be at least 6 characters").isLength({ min: 6 }),
+    check("password", "Password must be at least 6 characters").isLength({ min: 6 }),
     check("confirmPassword", "Confirm password is required").exists(),
   ],
   signup
 );
 
-// POST route for user login
 router.post(
   "/login",
   [
@@ -28,15 +31,58 @@ router.post(
   login
 );
 
-// POST route for forgot password (send reset email)
 router.post("/forgot-password", [check("email", "Please include a valid email").isEmail()], forgotPassword);
 
-// PUT route to update password (reset password)
-router.put("/reset-password", 
+router.post(
+  "/reset-password",
   [
-    check("email", "Please include a valid email").isEmail(),
-    check("newPassword", "New password is required and should be at least 6 characters").isLength({ min: 6 }),
+    check("token", "Reset token is required").exists(),
+    check("newPassword", "New password must be at least 6 characters").isLength({ min: 6 }),
   ],
-  resetPassword);  // Use PUT method to update the password
+  resetPassword
+);
+
+/* ========== KPIs (Admin + Editor) ========== */
+router.get("/users/kpis", protect, authorizeRoles("Admin", "Editor"), getUserKpis);
+
+/* ========== Read (Admin + Editor) ========== */
+router.get("/users", protect, authorizeRoles("Admin", "Editor"), getAllUsers);
+router.get("/users/:id", protect, authorizeRoles("Admin", "Editor"), getUserById);
+
+/* ========== Admin CRUD ========== */
+router.post(
+  "/users",
+  protect,
+  authorizeRoles("Admin"),
+  [
+    check("name", "Name is required").notEmpty(),
+    check("email", "Please include a valid email").isEmail(),
+    check("password", "Password must be at least 6 characters").isLength({ min: 6 }),
+    check("role").optional().isIn(["Admin", "Editor", "User"]).withMessage("Invalid role"),
+  ],
+  adminCreateUser
+);
+
+router.put(
+  "/users/:id",
+  protect,
+  authorizeRoles("Admin"),
+  [
+    check("email").optional().isEmail().withMessage("Invalid email"),
+    check("password").optional().isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+    check("role").optional().isIn(["Admin", "Editor", "User"]).withMessage("Invalid role"),
+  ],
+  adminUpdateUser
+);
+
+router.put(
+  "/users/:id/role",
+  protect,
+  authorizeRoles("Admin"),
+  [check("role").isIn(["Admin", "Editor", "User"]).withMessage("Invalid role")],
+  updateUserRole
+);
+
+router.delete("/users/:id", protect, authorizeRoles("Admin"), deleteUser);
 
 export default router;
