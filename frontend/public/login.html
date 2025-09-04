@@ -74,7 +74,8 @@
 						<div class="row">
 							<div class="col-md-12">
 								<div class="register-one__form__email">
-									<input type="email" id="loginEmail" name="email" placeholder="marveltheme@gmail.com|">
+									<input type="email" id="loginEmail" name="email"
+										placeholder="marveltheme@gmail.com|">
 									<i class="icon-envelope"></i>
 								</div>
 							</div>
@@ -85,7 +86,8 @@
 								</div>
 							</div>
 							<div class="col-md-12">
-								<div class="register-one__form__forgot"><a href="forget-password.html">Forgot Password?</a></div>
+								<div class="register-one__form__forgot"><a href="forget-password.html">Forgot
+										Password?</a></div>
 							</div>
 							<div class="col-md-12">
 								<button type="submit" class="thm-btn register-one__btn">
@@ -94,7 +96,8 @@
 							</div>
 						</div>
 					</form>
-					<p class="register-one__tagline">Don’t have an account? <a href="create-account.html">Sign Up for Free</a>
+					<p class="register-one__tagline">Don’t have an account? <a href="create-account.html">Sign Up for
+							Free</a>
 					</p>
 				</div>
 			</div>
@@ -181,36 +184,93 @@
 	<!-- End PageWrapper -->
 
 	<script>
-        // Handle login form submission
-        document.getElementById('login-form').addEventListener('submit', async function (event) {
-            event.preventDefault(); // Prevent form submission
+		(function () {
+			const API_BASE = "http://localhost:5000";
+			const form = document.getElementById("login-form");
+			const emailEl = document.getElementById("loginEmail");
+			const passEl = document.getElementById("loginPassword");
+			const submitBtn = form?.querySelector('button[type="submit"], input[type="submit"]');
 
-            const email = document.getElementById('loginEmail').value;  // Get email value
-            const password = document.getElementById('loginPassword').value;  // Get password value
+			function saveAuthToStorage(data) {
+				// data = { token, userId, name, email, role }
+				localStorage.setItem("token", data.token);
+				localStorage.setItem("user", JSON.stringify({
+					_id: data.userId,
+					name: data.name,
+					email: data.email,
+					role: data.role, // "Admin" | "Editor" | "User"
+				}));
+			}
 
-            try {
-                const response = await fetch("http://localhost:5000/api/auth/login", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ email, password })
-                });
+			async function refreshUserFromMe(token) {
+				try {
+					const res = await fetch(`${API_BASE}/api/auth/me`, {
+						headers: { Authorization: `Bearer ${token}` },
+						cache: "no-store",
+					});
+					if (!res.ok) return;
+					const json = await res.json();
+					if (json && json.user) {
+						// Keep local copy in sync with backend truth
+						localStorage.setItem("user", JSON.stringify(json.user));
+					}
+				} catch (_) {
+					// ignore network issues here
+				}
+			}
 
-                const data = await response.json();
+			form.addEventListener("submit", async function (event) {
+				event.preventDefault();
 
-                if (response.ok) {
-                    alert("Login successful!");
-                    localStorage.setItem("token", data.token);  // Store token in local storage
-                    window.location.href = "/dashboard"; // Redirect to the dashboard after successful login
-                } else {
-                    alert(data.error); // Show error message from backend
-                }
-            } catch (error) {
-                alert("Error logging in. Please try again.");
-            }
-        });
-    </script>
+				const email = emailEl.value.trim();
+				const password = passEl.value;
+
+				if (!email || !password) {
+					alert("Please enter email and password.");
+					return;
+				}
+
+				if (submitBtn) submitBtn.disabled = true;
+
+				try {
+					const response = await fetch(`${API_BASE}/api/auth/login`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ email, password }),
+					});
+
+					const data = await response.json();
+
+					if (!response.ok) {
+						alert(data.error || "Invalid credentials");
+						return;
+					}
+
+					// ✅ Save token + user (with role)
+					saveAuthToStorage(data);
+
+					// 🔒 Optional: verify user/role with server and update cache
+					await refreshUserFromMe(data.token);
+
+					// 🎯 Redirect — both Admin and User go to /plans
+					// (Your /plans page already hides admin tools unless role === "Admin")
+					window.location.href = "/dashboard";
+				} catch (err) {
+					alert("Error logging in. Please try again.");
+				} finally {
+					if (submitBtn) submitBtn.disabled = false;
+				}
+			});
+
+			// Optional: expose a simple logout helper for other pages
+			window.logout = function () {
+				localStorage.removeItem("token");
+				localStorage.removeItem("user");
+				window.location.href = "/login.html";
+			};
+		})();
+	</script>
+
 	<script src="js/jquery.js"></script>
 	<script src="js/01-bootstrap.min.js"></script>
 	<script src="js/02-bootstrap-select.min.js"></script>

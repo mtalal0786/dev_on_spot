@@ -1,4 +1,4 @@
-// backend/models/userSchema.js
+//backend/models/userSchema.js
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -11,8 +11,10 @@ const UserSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false },
     passwordResetToken: { type: String },
     passwordResetExpires: { type: Date },
-    // NEW: track last login for KPI "active users"
     lastLoginAt: { type: Date, default: null },
+
+    // 👇 NEW: where we'll store Stripe customer id
+    stripeCustomerId: { type: String, default: null },
   },
   { timestamps: true }
 );

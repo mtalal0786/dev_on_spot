@@ -3,12 +3,15 @@ import express from "express";
 import {
   signup, login, forgotPassword, resetPassword,
   getAllUsers, getUserById, updateUserRole, deleteUser,
-  adminCreateUser, adminUpdateUser, getUserKpis
+  adminCreateUser, adminUpdateUser, getUserKpis, me
 } from "../controllers/authController.js";
 import { protect, authorizeRoles } from "../middlewares/authMiddleware.js";
 import { check } from "express-validator";
 
 const router = express.Router();
+
+/* ===== Who am I (protected) ===== */
+router.get("/me", protect, me);
 
 /* ========== Public ========== */
 router.post(

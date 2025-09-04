@@ -264,6 +264,20 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+export const me = (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authorized" });
+  const u = req.user;
+  res.json({
+    user: {
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      isEmailVerified: u.isEmailVerified,
+    },
+  });
+};
+
 /* =========================
  * KPIs (protected)
  * ========================= */
