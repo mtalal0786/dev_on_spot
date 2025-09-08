@@ -25,6 +25,12 @@ import paymentsRouter from "./routes/paymentsRoutes.js";
 import packagesRoutes from "./routes/packagesRoutes.js";
 import transactionsRoutes from "./routes/transactionsRoutes.js";
 
+import instanceRoutes from "./routes/instanceRoutes.js";
+import quotaRoutes from "./routes/quotaRoutes.js";
+import alertRoutes from "./routes/alertRoutes.js";
+import metricRoutes from "./routes/metricRoutes.js";
+import { start as startSimulator } from "./services/simulatorService.js";
+
 // Load environment variables
 dotenv.config();
 
@@ -66,9 +72,16 @@ app.use("/api/payments",     paymentsRouter);
 app.use("/api/packages",     packagesRoutes);
 app.use("/api/transactions", transactionsRoutes);
 
+app.use("/api/infrastructure/instances", instanceRoutes);
+app.use("/api/infrastructure/quotas",    quotaRoutes);
+app.use("/api/infrastructure/alerts",    alertRoutes);
+app.use("/api/infrastructure/metrics",   metricRoutes);
+
 // (optional) Health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// Start the simulator service
+startSimulator(60_000); // tick every 60s (change to 30_000 for faster)
 // Start the server
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
