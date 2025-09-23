@@ -4,26 +4,42 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Globe, Pause, Play } from "lucide-react";
 import axios from "axios";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface TrafficEntry {
   _id: string;
   projectId: {
     _id: string;
     projectName: string;
-  }; // Populated ObjectId reference
+  };
   method: string;
   path: string;
   status: "ALLOW" | "BLOCK";
   statusCode: number;
   ip: string;
   country: string;
+  rule: string;
+  userAgent: string;
+  referrer: string;
   timestamp: string;
 }
 
 interface Project {
   _id: string;
-  projectName: string; // Adjusted to match schema
+  projectName: string;
   projectDescription?: string;
+}
+
+interface ChartData {
+  _id: number | string; // Time bucket (hour, day, month)
+  count: number;
 }
 
 export default function LiveTrafficCard() {
@@ -33,6 +49,8 @@ export default function LiveTrafficCard() {
   const [trafficFilter, setTrafficFilter] = useState<string>("All");
   const [trafficPaused, setTrafficPaused] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [timeframe, setTimeframe] = useState<string>('hourly');
 
   const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000/api";
 
@@ -48,7 +66,6 @@ export default function LiveTrafficCard() {
       const response = await axios.get(`${API_BASE}/security/traffic/projects`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Map response to match Project interface
       setProjects(
         response.data.map((p: any) => ({
           _id: p._id,
@@ -57,7 +74,7 @@ export default function LiveTrafficCard() {
         }))
       );
       if (response.data.length > 0) {
-        setSelectedProjectId(response.data[0]._id); // Default to first project
+        setSelectedProjectId(response.data[0]._id);
       }
     } catch (err) {
       console.error("Failed to fetch projects:", err);
@@ -72,7 +89,7 @@ export default function LiveTrafficCard() {
       const token = getAuthToken();
       const params = new URLSearchParams({
         projectId: selectedProjectId,
-        limit: "20",
+        limit: '20',
         filter: trafficFilter,
       });
       const response = await axios.get(`${API_BASE}/security/traffic/logs?${params}`, {
@@ -86,7 +103,25 @@ export default function LiveTrafficCard() {
     }
   };
 
-  // Generate new traffic entry (simulate real-time addition)
+  // Fetch traffic chart data
+  const fetchChartData = async () => {
+    if (!selectedProjectId) return;
+    try {
+      const token = getAuthToken();
+      const params = new URLSearchParams({
+        projectId: selectedProjectId,
+        timeframe,
+      });
+      const response = await axios.get(`${API_BASE}/security/traffic/chart?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setChartData(response.data);
+    } catch (err) {
+      console.error("Failed to fetch chart data:", err);
+    }
+  };
+
+  // Generate new traffic entry
   const generateNewTraffic = async () => {
     if (!selectedProjectId || trafficPaused) return;
     try {
@@ -98,8 +133,8 @@ export default function LiveTrafficCard() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      // Immediately fetch the updated traffic list
-      await fetchTraffic();
+      fetchTraffic(); // Refresh traffic list
+      fetchChartData(); // Refresh chart
     } catch (err) {
       console.error("Failed to generate traffic:", err);
     }
@@ -112,12 +147,13 @@ export default function LiveTrafficCard() {
   useEffect(() => {
     if (selectedProjectId) {
       fetchTraffic();
+      fetchChartData();
     }
-  }, [selectedProjectId, trafficFilter]);
+  }, [selectedProjectId, trafficFilter, timeframe]);
 
   useEffect(() => {
     if (!trafficPaused) {
-      const interval = setInterval(generateNewTraffic, 2000); // Generate every 2 seconds
+      const interval = setInterval(generateNewTraffic, 5000); // Increased to 5s for better simulation
       return () => clearInterval(interval);
     }
   }, [selectedProjectId, trafficPaused]);
@@ -127,7 +163,7 @@ export default function LiveTrafficCard() {
   );
 
   return (
-    <Card className="lg:col-span-6">
+    <Card className="lg:col-span-12">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
@@ -152,7 +188,7 @@ export default function LiveTrafficCard() {
               <option>Allowed</option>
             </select>
             <select
-              value={selectedProjectId || ""}
+              value={selectedProjectId || ''}
               onChange={(e) => setSelectedProjectId(e.target.value)}
               className="text-xs bg-background border rounded px-2 py-1"
             >
@@ -163,11 +199,29 @@ export default function LiveTrafficCard() {
                 </option>
               ))}
             </select>
+            <select
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value)}
+              className="text-xs bg-background border rounded px-2 py-1"
+            >
+              <option value="hourly">Hourly</option>
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+            </select>
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1 max-h-64 overflow-y-auto">
+        {/* Bar Chart */}
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="_id" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="count" fill="#10b981" /> {/* Tailwind emerald-500 */}
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="space-y-1 max-h-64 overflow-y-auto mt-4">
           {loading ? (
             <div className="text-center text-muted-foreground py-8">Loading traffic...</div>
           ) : filteredTraffic.length === 0 ? (

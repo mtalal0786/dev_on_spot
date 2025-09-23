@@ -795,7 +795,11 @@ export default function SecurityPlansPage() {
       ];
       await Promise.all(rulePromises);
 
-      setPlans([...plans, createdPlan]);
+      // Fetch the plan again to get the updated ruleCount
+      const planWithRules = await axios.get(`${BASE_URL}/security/plans/${createdPlan._id}`);
+      const updatedPlan = planWithRules.data;
+
+      setPlans([...plans, updatedPlan]);
       setShowCreateDialog(false);
       setNewPlan({
         name: "",

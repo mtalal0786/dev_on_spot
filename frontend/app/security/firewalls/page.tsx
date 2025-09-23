@@ -145,12 +145,12 @@ export default function FirewallsPage() {
                   <h1 className="text-3xl font-bold">Firewalls</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
+                  {/* <Button variant="outline" size="sm">
                     <RefreshCw className="w-4 h-4 mr-2" /> Refresh
                   </Button>
                   <Button variant="outline" size="sm">
                     <Download className="w-4 h-4 mr-2" /> Export CSV
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
 

@@ -4,15 +4,15 @@ import UserPref from "../models/UserPref.js";
 import { getPaging } from "../lib/pagination.js";
 import mongoose from "mongoose";
 import { mailer, defaultFrom, verifyMailer } from "../config/mailer.js";
-import {getEmailAlertsPreference} from "./securityController.js";
-
-// // ---- one-time SMTP verification (non-blocking) ----
-// verifyMailer().catch((e) =>
-//   // console.error("⚠️ SMTP verify on controller load failed:", e?.message || e)
-// );
+import { getEmailAlertsPreference } from "./securityController.js";
 
 // Escape regex for search
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// One-time SMTP verification (non-blocking)
+verifyMailer().catch((e) =>
+  console.error("⚠️ SMTP verify on controller load failed:", e?.message || e)
+);
 
 export const listAlerts = asyncHandler(async (req, res) => {
   const { page, pageSize, skip, limit } = getPaging(req.query, {
@@ -53,7 +53,7 @@ export const listAlerts = asyncHandler(async (req, res) => {
   res.json({ rows, page, pageSize, total });
 });
 
-// Create alert and email subscribers (plus optional distro in MAIL_TO)
+// Create alert and email subscribers
 export const createAlert = asyncHandler(async (req, res) => {
   const { severity, message, detail, source, status } = req.body;
 
@@ -67,7 +67,7 @@ export const createAlert = asyncHandler(async (req, res) => {
   const alert = await SecurityAlert.create({
     severity,
     message,
-    detail,
+    detail: detail || "",
     source: source || "WAF",
     status: status || "Open",
   });
@@ -82,40 +82,34 @@ export const createAlert = asyncHandler(async (req, res) => {
 
   const listFromDB = subscribers.map((u) => (u.email || "").trim()).filter(Boolean);
 
-  // Optional distro (comma-separated allowed): MAIL_TO="a@x.com,b@y.com"
   const envTo = (process.env.MAIL_TO || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Deduplicate
   let uniqueRecipients = [...new Set([...listFromDB, ...envTo])];
 
-  // --- NEW: force to current logged-in user only ---
   const userId = req.user?._id || req.user?.id;
   const userEmailFromToken = (req.user?.email || "").trim();
   const prefForUser = userId ? await UserPref.findOne({ userId }).lean() : null;
 
-  // Keep the same variable name for compatibility with your code
   const emailAlertsPref = { enabled: !!(prefForUser?.emailAlertsEnabled) };
   const recipientEmail = (prefForUser?.email || userEmailFromToken || "").trim();
 
-  // Replace recipients with just this one user (if present)
   uniqueRecipients = recipientEmail ? [recipientEmail] : [];
 
   // 3) Prepare email content
-  // console.log("User email alerts preference:", emailAlertsPref.enabled);
   if (!emailAlertsPref.enabled || uniqueRecipients.length === 0) {
     return res.status(201).json({
       ok: true,
       alert: {
         id: alert._id.toString(),
-        severity: alert.severity,
-        message: alert.message,
+        severity: alert.severity || "UNKNOWN",
+        message: alert.message || "No message",
         detail: alert.detail || "",
-        source: alert.source,
+        source: alert.source || "WAF",
         time: alert.timestamp.toISOString(),
-        status: alert.status,
+        status: alert.status || "Open",
       },
       emailSummary: {
         message:
@@ -128,48 +122,47 @@ export const createAlert = asyncHandler(async (req, res) => {
 
   const subject = `[Security] ${alert.severity}: ${alert.message}`;
   const text = [
-    `Severity: ${alert.severity}`,
-    `Message: ${alert.message}`,
+    `Severity: ${alert.severity || "UNKNOWN"}`,
+    `Message: ${alert.message || "No message"}`,
     `Detail: ${alert.detail || "N/A"}`,
-    `Source: ${alert.source}`,
+    `Source: ${alert.source || "WAF"}`,
     `Time: ${new Date(alert.timestamp).toLocaleString()}`,
   ].join("\n");
 
   const html = `
-  <div style="font-family: Arial, sans-serif; background-color:#f4f4f7; padding:20px; color:#333;">
-    <table width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-      <tr>
-        <td style="background:#0d6efd; padding:16px 24px; color:#ffffff; font-size:18px; font-weight:bold;">
-          🔒 DevOnSpot Security Alert
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:24px;">
-          <h2 style="margin:0 0 16px; font-size:20px; color:#111;">${alert.message}</h2>
-          <p style="margin:4px 0;"><b>Severity:</b> <span style="color:${alert.severity === "CRITICAL" ? "#d9534f" : "#555"}">${alert.severity}</span></p>
-          <p style="margin:4px 0;"><b>Source:</b> ${alert.source}</p>
-          <p style="margin:4px 0 16px;"><b>Time:</b> ${new Date(alert.timestamp).toLocaleString()}</p>
+    <div style="font-family: Arial, sans-serif; background-color:#f4f4f7; padding:20px; color:#333;">
+      <table width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+        <tr>
+          <td style="background:#0d6efd; padding:16px 24px; color:#ffffff; font-size:18px; font-weight:bold;">
+            🔒 DevOnSpot Security Alert
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px;">
+            <h2 style="margin:0 0 16px; font-size:20px; color:#111;">${alert.message || "No message"}</h2>
+            <p style="margin:4px 0;"><b>Severity:</b> <span style="color:${(alert.severity === "CRITICAL" ? "#d9534f" : "#555") || "#555"}">${alert.severity || "UNKNOWN"}</span></p>
+            <p style="margin:4px 0;"><b>Source:</b> ${alert.source || "WAF"}</p>
+            <p style="margin:4px 0 16px;"><b>Time:</b> ${new Date(alert.timestamp).toLocaleString()}</p>
+            ${
+              alert.detail
+                ? `<div style="background:#f9f9f9; border:1px solid #eee; padding:12px; border-radius:6px; font-family:monospace; white-space:pre-wrap;">${escapeHtml(
+                    alert.detail
+                  )}</div>`
+                : ""
+            }
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9f9f9; padding:16px; text-align:center; font-size:12px; color:#666;">
+            This email was generated automatically by DevOnSpot Security System.<br/>
+            &copy; ${new Date().getFullYear()} ZMedia Technologies. All rights reserved.
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
 
-          ${
-            alert.detail
-              ? `<div style="background:#f9f9f9; border:1px solid #eee; padding:12px; border-radius:6px; font-family:monospace; white-space:pre-wrap;">${escapeHtml(
-                  alert.detail
-                )}</div>`
-              : ""
-          }
-        </td>
-      </tr>
-      <tr>
-        <td style="background:#f9f9f9; padding:16px; text-align:center; font-size:12px; color:#666;">
-          This email was generated automatically by DevOnSpot Security System.<br/>
-          &copy; ${new Date().getFullYear()} ZMedia Technologies. All rights reserved.
-        </td>
-      </tr>
-    </table>
-  </div>
-`;
-
-  // 4) Send emails (one-by-one)
+  // 4) Send emails
   let sent = 0;
   let failed = 0;
   const results = [];
@@ -186,17 +179,13 @@ export const createAlert = asyncHandler(async (req, res) => {
         });
         sent += 1;
         results.push({ to, ok: true, id: info?.messageId });
-        // console.log(`✅ Alert email sent to ${to} (${info?.messageId || "no-id"})`);
       } catch (err) {
         failed += 1;
         results.push({ to, ok: false, error: err?.message || String(err) });
-        // console.error(`❌ Failed to send alert email to ${to}:`, err?.message || err);
       }
     });
 
     await Promise.allSettled(sendJobs);
-  } else {
-    // console.warn("ℹ️ No email recipients (subscribers empty and MAIL_TO not set).");
   }
 
   // 5) Respond with summary
@@ -204,24 +193,23 @@ export const createAlert = asyncHandler(async (req, res) => {
     ok: true,
     alert: {
       id: alert._id.toString(),
-      severity: alert.severity,
-      message: alert.message,
+      severity: alert.severity || "UNKNOWN",
+      message: alert.message || "No message",
       detail: alert.detail || "",
-      source: alert.source,
+      source: alert.source || "WAF",
       time: alert.timestamp.toISOString(),
-      status: alert.status,
+      status: alert.status || "Open",
     },
     emailSummary: {
       totalRecipients: uniqueRecipients.length,
       sent,
       failed,
-      results, // per-recipient status
+      results,
     },
   });
 });
 
-
-// ---- helpers ----
+// Helpers
 function escapeHtml(s = "") {
   return String(s)
     .replace(/&/g, "&amp;")

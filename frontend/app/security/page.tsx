@@ -392,23 +392,33 @@ export default function SecurityPage() {
                   </div>
 
                   {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search security events..."
-                      className="pl-10 w-64"
-                    />
-                  </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input
+                        placeholder="Search security events..."
+                        className="pl-10 w-64"
+                        value={trafficFilter === "All" ? "" : trafficFilter}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTrafficFilter(val ? val : "All");
+                          // Broadcast search to all cards via a custom event
+                          window.dispatchEvent(
+                            new CustomEvent("security-global-search", { detail: val })
+                          );
+                        }}
+                      />
+                    </div>
 
                   {/* Refresh */}
-                  <Button
+                    <Button
                     variant="outline"
                     size="sm"
                     disabled={savingEmailAlerts}
-                  >
+                    onClick={() => window.location.reload()}
+                    >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
-                  </Button>
+                    </Button>
 
                   {/* ⬇️ NEW: Test Notification button */}
                   <Button
@@ -454,6 +464,17 @@ export default function SecurityPage() {
                   setViewAllCols={setViewAllCols}
                 />
 
+                  {/* Malware Detections */}
+                  <MalwareCard
+                    setViewAllOpen={setViewAllOpen}
+                    setViewAllTitle={setViewAllTitle}
+                    setViewAllDataset={setViewAllDataset}
+                    setViewAllRows={setViewAllRows}
+                    setViewAllCols={setViewAllCols}
+                  />
+                {/* Security Scan */}
+                <SecurityScanCard />
+
                 {/* Custom Security Rules */}
                 <SecurityRulesCard
                   setViewAllOpen={setViewAllOpen}
@@ -463,8 +484,6 @@ export default function SecurityPage() {
                   setViewAllCols={setViewAllCols}
                 />
 
-                {/* Security Scan */}
-                <SecurityScanCard />
 
                 {/* Recent Login Attempts */}
                 <LoginAttemptsCard
@@ -475,14 +494,6 @@ export default function SecurityPage() {
                   setViewAllCols={setViewAllCols}
                 />
 
-                {/* Malware Detections */}
-                <MalwareCard
-                  setViewAllOpen={setViewAllOpen}
-                  setViewAllTitle={setViewAllTitle}
-                  setViewAllDataset={setViewAllDataset}
-                  setViewAllRows={setViewAllRows}
-                  setViewAllCols={setViewAllCols}
-                />
 
                 {/* Live Traffic Monitor */}
                 <LiveTrafficCard />

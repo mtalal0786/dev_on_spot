@@ -93,7 +93,7 @@ export default function LoginAttemptsCard({
   };
 
   return (
-    <Card className="lg:col-span-6">
+    <Card className="lg:col-span-12">
       <CardHeader>
         <CardTitle className="flex items-center">
           <Activity className="w-5 h-5 mr-2" />

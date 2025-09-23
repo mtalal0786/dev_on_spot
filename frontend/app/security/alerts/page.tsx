@@ -40,8 +40,8 @@ import {
   ChevronLeft,
   X,
 } from "lucide-react";
-// Modal import
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 type AlertRow = {
   id: string;
@@ -62,6 +62,9 @@ const SEVERITY_TO_BADGE = (s: AlertRow["severity"]) =>
     ? "bg-yellow-500 text-black"
     : "bg-blue-500 text-white";
 
+const SEVERITY_TO_VARIANT = (s: AlertRow["severity"]) =>
+  s === "CRITICAL" || s === "HIGH" ? "destructive" : "default";
+
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [q, setQ] = useState("");
@@ -80,6 +83,7 @@ export default function AlertsPage() {
     source: "WAF",
     status: "Open",
   });
+  const { toast } = useToast();
 
   const API_BASE = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -124,7 +128,7 @@ export default function AlertsPage() {
     fetchAlerts();
   }, [q, severity, status, source, page]);
 
-const createAlert = async () => {
+  const createAlert = async () => {
     try {
       const token = getAuthToken();
       if (!token) return console.error("No auth token found");
@@ -140,8 +144,23 @@ const createAlert = async () => {
 
       if (!res.ok) throw new Error("Failed to create alert");
 
+      const createdAlert = await res.json();
+      console.log("Created Alert Response:", createdAlert); // Debug log to check response
+
       // Refresh alerts after creation
       fetchAlerts();
+
+      // Show dynamic toast with new alert data, handling undefined fields
+      const alertSeverity = createdAlert.severity || newAlert.severity || "UNKNOWN";
+      const alertMessage = createdAlert.message || newAlert.message || "No message";
+      const alertDetail = createdAlert.detail || newAlert.detail || "No details provided";
+
+      toast({
+        title: `${alertSeverity} Alert: ${alertMessage}`,
+        description: alertDetail,
+        variant: SEVERITY_TO_VARIANT(alertSeverity as AlertRow["severity"]),
+      });
+
       setAddModalOpen(false);
       setNewAlert({
         severity: "CRITICAL",
@@ -151,7 +170,7 @@ const createAlert = async () => {
         status: "Open",
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error creating alert:", err);
     }
   };
 
@@ -172,6 +191,7 @@ const createAlert = async () => {
     setSource("all");
     setPage(1);
   }
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <div className="min-h-screen bg-background">
@@ -189,15 +209,15 @@ const createAlert = async () => {
                   <h1 className="text-3xl font-bold">Alerts</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={fetchAlerts}>
+                  {/* <Button variant="outline" size="sm" onClick={fetchAlerts}>
                     <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                  </Button>
+                  </Button> */}
                   <Button variant="outline" size="sm" className="bg-white text-black" onClick={() => setAddModalOpen(true)}>
                     Add Alert
                   </Button>
-                  <Button variant="outline" size="sm">
+                  {/* <Button variant="outline" size="sm">
                     <Download className="w-4 h-4 mr-2" /> Export CSV
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
 

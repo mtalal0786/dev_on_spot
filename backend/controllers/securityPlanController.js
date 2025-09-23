@@ -24,7 +24,10 @@ export const createSecurityPlan = asyncHandler(async (req, res) => {
   const { name, description, owner, mode, targets } = req.body;
   const plan = new SecurityPlan({ name, description, owner, mode, targets });
   const createdPlan = await plan.save();
-  res.status(201).json(createdPlan);
+  // Return the created plan with ruleCount = 0
+  const ruleCount = await SecurityRule.countDocuments({ planId: createdPlan._id });
+  const responsePlan = { ...createdPlan.toObject(), ruleCount };
+  res.status(201).json(responsePlan);
 });
 
 // Get a specific security plan by ID
