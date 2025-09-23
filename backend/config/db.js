@@ -1,15 +1,16 @@
-// config/db.js
+// backend/config/db.js
 import mongoose from "mongoose";
 
-// Connect to MongoDB
-const connectToDatabase = async () => {
+const connectDB = async () => {
+  const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/dev_on_spot";
   try {
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/dev_on_spot");
-    console.log("Connected to MongoDB");
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    process.exit(1); // Exit the process if the database connection fails
+    mongoose.set("strictQuery", true);
+    await mongoose.connect(uri);
+    console.log("✅ MongoDB connected");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err?.message || err);
+    process.exit(1);
   }
 };
 
-export default connectToDatabase;
+export default connectDB;

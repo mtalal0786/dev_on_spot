@@ -79,7 +79,6 @@ export const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
-    // Do not reveal existence
     if (!user) {
       return res
         .status(200)
@@ -93,7 +92,10 @@ export const forgotPassword = async (req, res) => {
     user.passwordResetExpires = Date.now() + 3600000; // 1h
     await user.save();
 
-    const resetUrl = `http://localhost:5000/reset-password?token=${resetToken}`;
+    // 👉 Send token & email in the reset URL
+    const resetUrl = `http://localhost:3000/reset-password.html?token=${resetToken}&email=${encodeURIComponent(
+      email
+    )}`;
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -103,15 +105,41 @@ export const forgotPassword = async (req, res) => {
     });
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: `"DevOnSpot Alerts" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Password Reset Request",
       html: `
-        <p>You requested a password reset for your account.</p>
-        <p>Please click on the link below to reset your password:</p>
-        <a href="${resetUrl}" style="display:inline-block;padding:10px 20px;color:#fff;background:#0066cc;text-decoration:none;border-radius:5px;">Reset Password</a>
-        <p>This link is valid for one hour. If you did not request a password reset, please ignore this email.</p>
-      `,
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+    <!-- Header -->
+    <div style="background: #0066cc; color: #fff; padding: 20px; text-align: center;">
+      <h2 style="margin: 0;">🔐 Password Reset Request</h2>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 20px; color: #333; line-height: 1.6;">
+      <p>Hello,</p>
+      <p>We received a request to reset the password for your account. If this was you, please click the button below to choose a new password:</p>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" 
+           style="background-color: #0066cc; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">
+          Reset Your Password
+        </a>
+      </div>
+      
+      <p>This password reset link will expire in <strong>1 hour</strong>.</p>
+      <p>If you did not request a password reset, please ignore this email. Your account will remain secure.</p>
+      
+      <p style="margin-top: 30px;">Thank you,<br>The DevOnSpot Security Team</p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8f8f8; padding: 15px; font-size: 12px; color: #777; text-align: center;">
+      <p style="margin: 0;">This is an automated message. Please do not reply.</p>
+      <p style="margin: 5px 0 0;">© ${new Date().getFullYear()} DevOnSpot. All rights reserved.</p>
+    </div>
+  </div>
+`,
     };
 
     transporter.sendMail(mailOptions, (error) => {
@@ -127,6 +155,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
+
 export const resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   try {
@@ -137,9 +166,11 @@ export const resetPassword = async (req, res) => {
       passwordResetExpires: { $gt: Date.now() },
     });
 
-    if (!user) return res.status(400).json({ error: "Invalid or expired reset token" });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
 
-    user.password = newPassword; // pre-save hook will hash
+    user.password = newPassword; // pre-save hook should hash
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save();
@@ -150,6 +181,7 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 /* =========================
  * Users CRUD (protected)

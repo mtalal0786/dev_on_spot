@@ -1,4 +1,4 @@
-import Alert from "../models/Alert.js";
+import InfrAlert from "../models/InfraAlert.js";
 
 export const RULES = [
   { metricKey: "cpu",   type: "CPU",                 high: 90,  med: 80,  low: 70,  max: 100 },
@@ -10,7 +10,7 @@ export const RULES = [
 ];
 
 async function upsertAlert(instanceId, rule, severity, value, threshold) {
-  await Alert.updateOne(
+  await InfrAlert.updateOne(
     { instanceId, metricKey: rule.metricKey, active: true },
     { $set: { type: rule.type, severity, value, threshold } },
     { upsert: true }
@@ -18,7 +18,7 @@ async function upsertAlert(instanceId, rule, severity, value, threshold) {
 }
 
 async function resolveAlert(instanceId, rule) {
-  await Alert.updateMany(
+  await InfrAlert.updateMany(
     { instanceId, metricKey: rule.metricKey, active: true },
     { $set: { active: false } }
   );
