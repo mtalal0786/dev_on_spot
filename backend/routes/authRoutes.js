@@ -1,9 +1,9 @@
-// backend/routes/authRoutes.js
+// routes/authRoutes.js
 import express from "express";
 import {
   signup, login, forgotPassword, resetPassword,
   getAllUsers, getUserById, updateUserRole, deleteUser,
-  adminCreateUser, adminUpdateUser, getUserKpis, me
+  adminCreateUser, adminUpdateUser, getUserKpis, me, getUserRewards, rewardsStream
 } from "../controllers/authController.js";
 import { protect, authorizeRoles } from "../middlewares/authMiddleware.js";
 import { check } from "express-validator";
@@ -21,6 +21,7 @@ router.post(
     check("email", "Please include a valid email").isEmail(),
     check("password", "Password must be at least 6 characters").isLength({ min: 6 }),
     check("confirmPassword", "Confirm password is required").exists(),
+    // referralCode optional; can also be supplied via ?ref=
   ],
   signup
 );
@@ -87,5 +88,9 @@ router.put(
 );
 
 router.delete("/users/:id", protect, authorizeRoles("Admin"), deleteUser);
+
+/* ========== Rewards (protected) ========== */
+router.get("/rewards", protect, getUserRewards);         // pull stats
+router.get("/rewards/stream", protect, rewardsStream);   // real-time stream (SSE)
 
 export default router;

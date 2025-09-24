@@ -191,48 +191,59 @@
 	</div>
 	<!-- End PageWrapper -->
 
-	<script>
-        // Handle create account form submission
-        document.getElementById('createAccountForm').addEventListener('submit', async function(event) {
-            event.preventDefault();  // Prevent form submission
+<script>
+  // Get referralCode from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const referralCode = urlParams.get("ref") || null;
 
-            // Capture form data
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
+  // Handle create account form submission
+  document.getElementById('createAccountForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
 
-            // Check if passwords match
-            if (password !== confirmPassword) {
-                alert("Passwords do not match!");
-                return;
-            }
+    // Capture form data
+    const name = document.getElementById('name').value?.trim();
+    const email = document.getElementById('email').value?.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
 
-            // Send API request to the backend for signup
-            try {
-                const response = await fetch("http://localhost:5000/api/auth/signup", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ name, email, password, confirmPassword })
-                });
+    if (!name || !email || !password || !confirmPassword) {
+      alert("Please fill all fields.");
+      return;
+    }
 
-                const data = await response.json();
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
 
-                if (response.ok) {
-                    alert("Account created successfully!");
-                    localStorage.setItem("token", data.token);  // Store token in local storage
-                    window.location.href = "/login.html";  // Redirect to the main page after successful signup
-                } else {
-                    alert(data.error);  // Show error message from backend
-                }
-            } catch (error) {
-                alert("Error creating account. Please try again.");
-                console.error("Error:", error);
-            }
-        });
-    </script>
+    // Prepare payload (also allow referralCode from URL)
+    const payload = { name, email, password, confirmPassword };
+    if (referralCode) payload.referralCode = referralCode;
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Account created successfully!");
+        if (data?.token) localStorage.setItem("token", data.token);
+        window.location.href = "/login.html";
+      } else {
+        alert(data?.error || (data?.errors?.[0]?.msg) || "Signup failed");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error creating account. Please try again.");
+    }
+  });
+</script>
+
 	<script src="js/jquery.js"></script>
 	<script src="js/01-bootstrap.min.js"></script>
 	<script src="js/02-bootstrap-select.min.js"></script>
