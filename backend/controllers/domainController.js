@@ -1,4 +1,6 @@
 import fetch from 'node-fetch';
+import Domain from '../models/domain.js'; // Import the updated Mongoose model
+import mongoose from 'mongoose';
 
 /**
  * @desc    Check domain availability using the RapidAPI Domainr service.
@@ -44,7 +46,6 @@ export const checkDomainAvailability = async (req, res) => {
     let message = 'Domain is unavailable';
 
     // Find the exact domain in the results and check its status.
-    // The API response indicates a domain is available if 'tld_unavailable' is true.
     const exactMatch = result.results.find(d => d.domain === name);
 
     if (exactMatch) {
@@ -53,7 +54,6 @@ export const checkDomainAvailability = async (req, res) => {
         message = 'Domain is available';
       }
     } else {
-      // If no exact match is found, assume it's available.
       isAvailable = true;
       message = 'Domain is available';
     }
@@ -81,7 +81,6 @@ export const checkDomainAvailability = async (req, res) => {
 export const registerDomain = async (req, res) => {
   const { domain, registrar } = req.body;
 
-  // Add this console.log to see the values received by your API
   console.log(`Received request for domain: ${domain} and registrar: ${registrar}`);
 
   if (!domain || !registrar) {
@@ -96,30 +95,24 @@ export const registerDomain = async (req, res) => {
     return res.status(500).json({ message: 'RapidAPI keys or host are not configured.' });
   }
 
-  // Use the dedicated /v2/register endpoint which responds with a 302 redirect.
   const registerUrl = `https://${rapidApiHost}/v2/register?domain=${domain}&registrar=${registrar}`;
 
-  // Redirect the client to the constructed URL.
-  // The API will handle the 302 response, so we don't need a fetch call here.
-  res.redirect(registerUrl); 
-  
+  // Redirect the client to the registrar's URL
+  res.redirect(registerUrl);
 };
 
-// domainController.js
-
-import Domain from '../models/domain.js'; // Import the updated Mongoose model
-import mongoose from 'mongoose';
-
 /**
- * @fileoverview Updated Domain CRUD controller.
- * This file contains the logic for handling all domain-related operations,
- * including the new fields for purchased plan and expiration date.
+ * @desc    Helper function to check for valid MongoDB ObjectId
+ * @param   {string} id - The ID to check
+ * @returns {boolean} - Returns true if valid, false otherwise
  */
-
-// --- Helper function to check for valid MongoDB ObjectId ---
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// --- Helper function to calculate expiration date ---
+/**
+ * @desc    Helper function to calculate expiration date based on the plan
+ * @param   {string} plan - The domain's purchased plan (e.g., '1 month', '1 year')
+ * @returns {Date} - The calculated expiration date
+ */
 const calculateExpirationDate = (plan) => {
   const currentDate = new Date();
   switch (plan) {
@@ -139,69 +132,56 @@ const calculateExpirationDate = (plan) => {
       currentDate.setFullYear(currentDate.getFullYear() + 5);
       break;
     default:
-      // Default to 1 year if the plan is invalid
-      currentDate.setFullYear(currentDate.getFullYear() + 1);
+      currentDate.setFullYear(currentDate.getFullYear() + 1); // Default to 1 year if invalid
   }
   return currentDate;
 };
 
-// --- CREATE a new domain entry ---
+/**
+ * @desc    CREATE a new domain entry in the database
+ * @route   POST /api/domains
+ * @access  Public
+ */
 export const createDomain = async (req, res) => {
   try {
-    // For now, hardcode user email. This will be replaced with
-    // a proper authentication system that links to a user schema.
-    const userEmail = 'mainuser@example.com';
+    const { domain_provider_name, domain_name, ssl_purchased, domain_status, purchased_plan } = req.body;
 
-    // Destructure required fields from the request body
-    const {
-      domain_provider_name,
-      domain_name,
-      ssl_purchased,
-      domain_status,
-      purchased_plan,
-    } = req.body;
-
-    // Check if required fields are present
     if (!domain_provider_name || !domain_name || !domain_status || !purchased_plan) {
       return res.status(400).json({ message: 'Missing required fields.' });
     }
 
-    // Calculate the expiration date based on the purchased plan
     const expiration_date = calculateExpirationDate(purchased_plan);
 
-    // Create a new domain instance with all required fields
     const newDomain = new Domain({
-      user_email: userEmail,
+      user_email: 'mainuser@example.com', // Replace with actual user email
       domain_provider_name,
       domain_name,
       ssl_purchased,
       domain_status,
       purchased_plan,
-      expiration_date, // Add the calculated expiration date
+      expiration_date,
     });
 
-    // Save the new domain entry to the database
     const savedDomain = await newDomain.save();
 
-    // Respond with a 201 Created status and the new domain data
     res.status(201).json(savedDomain);
   } catch (error) {
-    // Handle specific MongoDB duplicate key error
     if (error.code === 11000) {
       return res.status(409).json({ message: 'A domain with this name already exists.' });
     }
-    // Handle other server errors
     console.error('Error creating domain:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// --- READ all domain entries ---
+/**
+ * @desc    READ all domain entries from the database
+ * @route   GET /api/domains
+ * @access  Public
+ */
 export const getAllDomains = async (req, res) => {
   try {
-    // Find all documents in the 'domains' collection
     const domains = await Domain.find();
-    // Respond with the list of domains
     res.status(200).json(domains);
   } catch (error) {
     console.error('Error fetching domains:', error);
@@ -209,25 +189,25 @@ export const getAllDomains = async (req, res) => {
   }
 };
 
-// --- READ a single domain entry by ID ---
+/**
+ * @desc    READ a single domain entry by its ID
+ * @route   GET /api/domains/:id
+ * @access  Public
+ */
 export const getDomainById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate the incoming ID format
     if (!isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid domain ID.' });
     }
 
-    // Find a domain by its ID
     const domain = await Domain.findById(id);
 
-    // If no domain is found, return a 404 Not Found error
     if (!domain) {
       return res.status(404).json({ message: 'Domain not found.' });
     }
 
-    // Respond with the found domain data
     res.status(200).json(domain);
   } catch (error) {
     console.error('Error fetching domain by ID:', error);
@@ -235,29 +215,25 @@ export const getDomainById = async (req, res) => {
   }
 };
 
-// --- UPDATE a domain entry by ID ---
+/**
+ * @desc    UPDATE a domain entry by its ID
+ * @route   PUT /api/domains/:id
+ * @access  Public
+ */
 export const updateDomain = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate the incoming ID format
     if (!isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid domain ID.' });
     }
 
-    // Find the domain and update it with the new data from the request body.
-    const updatedDomain = await Domain.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true } // runValidators ensures schema validation is applied on update
-    );
+    const updatedDomain = await Domain.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
 
-    // If no domain is found, return a 404 Not Found error
     if (!updatedDomain) {
       return res.status(404).json({ message: 'Domain not found.' });
     }
 
-    // Respond with the updated domain data
     res.status(200).json(updatedDomain);
   } catch (error) {
     console.error('Error updating domain:', error);
@@ -265,25 +241,25 @@ export const updateDomain = async (req, res) => {
   }
 };
 
-// --- DELETE a domain entry by ID ---
+/**
+ * @desc    DELETE a domain entry by its ID
+ * @route   DELETE /api/domains/:id
+ * @access  Public
+ */
 export const deleteDomain = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate the incoming ID format
     if (!isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid domain ID.' });
     }
 
-    // Find the domain and delete it
     const deletedDomain = await Domain.findByIdAndDelete(id);
 
-    // If no domain is found, return a 404 Not Found error
     if (!deletedDomain) {
       return res.status(404).json({ message: 'Domain not found.' });
     }
 
-    // Respond with a success message
     res.status(200).json({ message: 'Domain deleted successfully.' });
   } catch (error) {
     console.error('Error deleting domain:', error);
