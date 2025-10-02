@@ -45,6 +45,8 @@ import loginPolicyRoutes from "./routes/loginPolicyRoutes.js";
 import scanRoutes from './routes/scanRoutes.js';
 import trafficRoutes from './routes/trafficRoutes.js';
 
+import pluginRoutes from "./routes/pluginRoutes.js";
+
 // __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,6 +103,9 @@ app.use("/api/security/rate-limit",   rateLimitRoutes);
 app.use("/api/security/login-policy", loginPolicyRoutes);
 app.use("/api/security/scan",   scanRoutes);
 app.use("/api/security/traffic",   trafficRoutes);
+
+// NEW: Plugins
+app.use("/api/plugins", pluginRoutes);
 
 
 // Health check

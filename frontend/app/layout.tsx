@@ -1,4 +1,4 @@
-// app/layout.tsx
+// app/layout.tsx (updated)
 import type React from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>  {/* <-- Add this */}
         <ErrorBoundary>
           <AuthProvider>
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
